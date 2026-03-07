@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional
 
 import numpy as np
 from numpy._typing import NDArray
@@ -408,6 +408,79 @@ def trim_fieldline_nan_buffer(traces) -> List[NDArray[float]]:
     """
     fls = traces.geometry if isinstance(traces, Traces) else traces
     return [v[:, ~np.isnan(v).any(axis=0)] for v in fls.T]
+
+
+def combine_and_pad_fieldlines(arrs: list | tuple,
+                               to_trace: bool = False,
+                               traced_to_boundary: Optional[NDArray[bool]] = None
+                               ) -> np.ndarray | Traces:
+    """
+    NaN-pad a list of variable-length 3D point arrays into a single dense array.
+
+    This is a convenience utility for combining a list of arrays shaped
+    ``(3, Ni)`` (e.g., polyline/trajectory points) into a single array with a
+    uniform length along the point dimension by padding shorter entries with
+    ``np.nan``.
+
+    Each input array is interpreted as 3 coordinate components (x/y/z or
+    r/t/p, etc.) by ``Ni`` samples. The output is arranged as
+    ``(max_len, 3, n)`` where ``n = len(arrs)`` and ``max_len = max(Ni)``.
+
+    Parameters
+    ----------
+    arrs : Sequence[array-like]
+        List (or other sequence) of arrays, each with shape ``(3, Ni)``. The
+        second dimension (``Ni``) may vary across arrays.
+
+    Returns
+    -------
+    out : np.ndarray
+        Array of shape ``(max_len, 3, n)`` with dtype ``float``. For the i-th
+        input array with length ``Ni``, the first ``Ni`` rows of ``out[:, :, i]``
+        contain the transposed data (so that the point index is the first axis),
+        and rows ``Ni:`` are filled with ``np.nan``.
+
+        Concretely, for each i:
+
+        - ``out[:Ni, :, i] == arrs[i].T``
+        - ``out[Ni:, :, i] == np.nan``
+
+    Raises
+    ------
+    ValueError
+        If any element of ``arrs`` does not have shape ``(3, Ni)`` (i.e. the
+        first dimension is not 3).
+
+    Notes
+    -----
+    - The returned array is always floating-point because NaN padding requires
+      a float dtype.
+    - The input arrays are copied into the output; the result is not a view.
+    """
+    # arrs: list of arrays, each (3, Ni)
+    number_of_traces = len(arrs)
+    max_trace_length = max(a.shape[1] for a in arrs)
+    shape_err = any(a.shape[0] != 3 for a in arrs)
+    if shape_err:
+        raise ValueError("All input arrays must have shape (3, Ni)")
+
+    geometry = np.full((max_trace_length, 3, number_of_traces), np.nan, dtype=float)
+
+    if not to_trace:
+        for i, a in enumerate(arrs):
+            geometry[:a.shape[1], :, i] = a.T   # (3, ni) -> (ni, 3)
+        return geometry
+    else:
+        start_pos = np.full((3, number_of_traces), np.nan, dtype=float)
+        end_pos = np.full((3, number_of_traces), np.nan, dtype=float)
+        for i, a in enumerate(arrs):
+            geometry[:a.shape[1], :, i] = a.T   # (3, ni) -> (ni, 3)
+            start_pos[:, i] = a[:,0]
+            end_pos[:, i] = a[:, -1]
+        return Traces(geometry, start_pos, end_pos, traced_to_boundary)
+
+
+
 
 
 def s2c(r, t, p):

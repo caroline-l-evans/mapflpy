@@ -625,19 +625,13 @@ class _Tracer(MutableMapping, ABC):
             A (3, N) Fortran-ordered array.
         """
         if lps is None:
-            launch_points = fetch_default_launch_points(**kwargs)
+            return fetch_default_launch_points(**kwargs)
         else:
             launch_points = np.asarray(lps)
-            match launch_points.ndim:
-                case 1:
-                    launch_points = launch_points.reshape((3, 1), order='F')
-                case 2:
-                    if launch_points.shape[0] != 3:
-                        launch_points = launch_points.reshape((3, launch_points.shape[
-                            0]), order='F')
-                case _:
-                    raise ValueError("Launch points must be an array of r, t, p values")
-        return launch_points
+            try:
+                return launch_points.swapaxes(0, launch_points.shape.index(3)).reshape((3, -1))
+            except ValueError:
+                raise ValueError("Launch points could not be reshaped into a (3, N) array.")
 
     @state_modifier
     def set_tracing_direction(self,
