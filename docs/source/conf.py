@@ -160,6 +160,7 @@ numpydoc_xref_aliases = {
     "Callable": "collections.abc.Callable",
     "MutableMapping": "collections.abc.MutableMapping",
     "ArrayLike": "numpy.typing.ArrayLike",
+    "Sequence": "collections.abc.Sequence",
 }
 
 # ------------------------------------------------------------------------------

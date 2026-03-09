@@ -27,7 +27,7 @@ from types import MappingProxyType
 from typing import Iterable, Optional, Tuple, Callable, Literal
 
 import numpy as np
-from numpy._typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from psi_io import read_hdf_data
 
@@ -355,7 +355,7 @@ class _Tracer(MutableMapping, ABC):
 
     Other Parameters
     ----------------
-    **mapfl_params : dict
+    **mapfl_params
         Additional parameters forwarded to :func:`mapflpy_fortran.mapfl.run`.
         These override defaults in :data:`~mapflpy.typing.DEFAULT_PARAMS`.
 
@@ -368,13 +368,13 @@ class _Tracer(MutableMapping, ABC):
 
     Raises
     ------
-    :class:`ValueError`
+    ValueError
         If an invalid value is provided for magnetic field components.
-    :class:`TypeError`
+    TypeError
         If values are not of the expected type (``tuple`` or ``str``).
-    :class:`FileNotFoundError`
+    FileNotFoundError
         If provided file paths do not exist.
-    :class:`ImportError`
+    ImportError
         If :mod:`mapflpy_fortran` cannot be imported (shared library missing or not built).
     """
 
@@ -606,7 +606,7 @@ class _Tracer(MutableMapping, ABC):
         return self._mapfl_params[key], *[self._mapfl_params[f"{key}_{dim}"] for dim in 'rtp']
 
     def _parse_launch_points(self,
-                             lps: Optional[Iterable[float]],
+                             lps: Optional[ArrayLike],
                              **kwargs
                              ) -> ArrayType:
         """
@@ -614,10 +614,10 @@ class _Tracer(MutableMapping, ABC):
 
         Parameters
         ----------
-        lps : array-like, optional
+        lps : ArrayLike | None
             Launch points of shape (3, N) in spherical coordinates (r, t, p).
         kwargs : dict
-            If `lps` is None, these are passed to `fetch_default_launch_points`.
+            If `lps` is None, these are passed to :func:`~mapflpy.utils.fetch_default_launch_points`.
 
         Returns
         -------
@@ -658,7 +658,7 @@ class _Tracer(MutableMapping, ABC):
 
     @flush_state
     def trace(self,
-              launch_points: Optional[Iterable[float]] = None,
+              launch_points: Optional[ArrayLike] = None,
               buffer_size: int = DEFAULT_BUFFER_SIZE,
               **kwargs
               ) -> Traces:
@@ -667,11 +667,11 @@ class _Tracer(MutableMapping, ABC):
 
         Parameters
         ----------
-        launch_points : ndarray, optional
+        launch_points : Arraylike | None, optional
             Array of shape (3, N) for r, t, p coordinates. If None, uses defaults.
         buffer_size : int
             Maximum number of steps per fieldline.
-        kwargs : dict
+        **kwargs
             Extra arguments passed to default launch point generator if ``launch_points`` is None.
 
         Returns
@@ -847,14 +847,14 @@ class Tracer(_Tracer):
         return self._mapfl.run(**self._mapfl_params)
 
     def _trace(self,
-               lps: NDArray[np.float64],
+               lps: ArrayLike,
                buff: int) -> Traces:
         """
         Run fieldline tracing from a set of launch points.
 
         Parameters
         ----------
-        lps : ndarray
+        lps : ArrayLike
             Launch points in shape (3, N), in Fortran (column-major) order.
             Each column corresponds to a (r, t, p) coordinate.
         buff : int

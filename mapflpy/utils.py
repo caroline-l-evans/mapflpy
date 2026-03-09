@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Tuple, List, Any, Optional
+from typing import Tuple, List, Any, Optional, TypeVar, Sequence
 
 import numpy as np
-from numpy._typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from psi_io import interpolate_positions_from_hdf
 
 from mapflpy.globals import Traces, Polarity, ArrayType, PathType
@@ -16,7 +16,7 @@ from mapflpy.globals import Traces, Polarity, ArrayType, PathType
 __all__ = [
     'shift_phi_lps',
     'shift_phi_traces',
-    'fibonacci_sphere',
+    'fibonacci_lattice',
     'fetch_default_launch_points',
     'combine_fwd_bwd_traces',
     'get_fieldline_polarity',
@@ -26,20 +26,22 @@ __all__ = [
 ]
 
 
-def shift_phi_lps(lp: Any, phi_shift: float = 0.0):
+def shift_phi_lps(lp: np.ndarray,
+                  phi_shift: float = 0.0
+                  ) -> np.ndarray:
     """
     Shift a Fortran ordered (3,N) launch point array in longitude by phi_shift radians.
 
     Parameters
     ----------
-    lp : Any
+    lp : ArrayLike
         Launch points for fieldline tracing. Here we assume `lp[2,:]` is the phi coordinate.
     phi_shift : float
         The longitudinal shift in radians. Defualt is 0.0.
 
     Returns
     -------
-    lp : Any
+    lp : ArrayLike
         A copy of lp shifted in longitude.
 
     """
@@ -50,7 +52,9 @@ def shift_phi_lps(lp: Any, phi_shift: float = 0.0):
         return lp
 
 
-def shift_phi_traces(traces, phi_shift=0.0):
+def shift_phi_traces(traces: Sequence[np.ndarray],
+                     phi_shift: float = 0.0
+                     ) -> Sequence[np.ndarray]:
     """
     Shift mapflpy traces in longitude by phi_shift radians.
 
@@ -76,105 +80,112 @@ def shift_phi_traces(traces, phi_shift=0.0):
         return traces
 
 
-def fibonacci_sphere(samples=100, randomize=False):
+def fibonacci_lattice(
+    n: int = 100,
+    radius: float = 1.0,
+    randomize: bool = False,
+    seed: Optional[int] = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Generate a set of N points that will evenly sample a unit sphere.
+    Generate an approximately uniform set of spherical points using a Fibonacci lattice.
 
-    Unlike a uniform grid in phi/theta, These points are roughly equidistant at
-    *all* lat lon locations (think a soccer ball).
+    This is a vectorized “Fibonacci sphere” sampler that places ``n`` points on a
+    sphere using the golden-angle increment. The result is returned in spherical
+    coordinates using the **colatitude** convention:
 
-    .. note::
-        This code was adapted by RC from various samples on the internet
-        and used in an MIDM poster.
+    - ``r`` is constant (set to ``radius``).
+    - ``t`` (theta) is the colatitude from +z in ``[0, π]``.
+    - ``p`` (phi) is the azimuth from +x toward +y in ``[0, 2π)``.
 
     Parameters
     ----------
-    samples : int
-        Number of points to spread out over the unit sphere.
-    randomize : bool
-        Option to randomize where the N points show up (breaks up the eveness),
-        default is False.
+    n : int, optional
+        Number of sample points to generate.
+    radius : float, optional
+        Radius assigned to each generated point.
+    randomize : bool, optional
+        If True, apply a random phase offset to the golden-angle sequence to
+        avoid always starting from the same meridian. This preserves the
+        quasi-uniform spacing but changes the rotation of the point set.
+    seed : int or None, optional
+        RNG seed used only when ``randomize=True`` for reproducibility.
 
     Returns
     -------
-    p: ndarray
-        1D numpy array of phi (longitude) positions [radians, 0-2pi].
-    t: ndarray
-        1D numpy array of theta (co-latitude) positions [radians, 0-pi].
+    r, t, p : ndarray
+        Arrays of shape ``(n,)`` containing spherical coordinates of each point.
+
+    Notes
+    -----
+    - Internally, points are generated on a unit sphere and then assigned ``r=radius``.
+      The returned ``t`` and ``p`` reflect the angular distribution of the lattice.
+    - ``p`` is wrapped into ``[0, 2π)`` using modulo arithmetic.
+    - This sampler is “approximately uniform” (low-discrepancy) rather than truly
+      random; it is often preferred for deterministic coverage of the sphere.
+
+    Examples
+    --------
+    >>> r, t, p = fibonacci_lattice(n=1000, radius=2.0, randomize=True, seed=0)
+    >>> r.shape, t.shape, p.shape
+    ((1000,), (1000,), (1000,))
     """
-    rnd = 1.
+    # index array
+    i = np.arange(n, dtype=np.float64)
+
+    # random phase
+    rnd = 1.0
     if randomize:
-        rnd = random.random() * samples
+        rng = np.random.default_rng(seed)
+        rnd = rng.random() * n
 
-    points = []
-    offset = 2. / samples
-    increment = math.pi * (3. - math.sqrt(5.))
+    offset = 2.0 / n
+    increment = np.pi * (3.0 - np.sqrt(5.0))
 
-    for i in range(samples):
-        pid2 = .5 * math.pi
-        pi2 = 2 * math.pi
+    # y in [-1, 1] (approximately), and radial factor in xz-plane
+    y = (i * offset - 1.0) + (offset / 2.0)
+    r_xz = np.sqrt(np.maximum(0.0, 1.0 - y * y))  # guard tiny negatives
 
-        y = ((i * offset) - 1) + (offset / 2)
-        r = math.sqrt(1 - pow(y, 2))
+    # golden-angle increment around
+    phi = np.mod(i + rnd, n) * increment
 
-        phi = ((i + rnd) % samples) * increment
+    x = np.cos(phi) * r_xz
+    z = np.sin(phi) * r_xz
 
-        x = math.cos(phi) * r
-        z = math.sin(phi) * r
+    # radius (should be 1 for unit sphere)
+    r = np.full_like(x, radius)
 
-        r = math.sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))
+    # theta (co-latitude)
+    t = np.arccos(np.clip(z, -1.0, 1.0))
 
-        if (r == 0):
-            t = 0
-        else:
-            t = math.acos(z / r)
-            # t=pid2 - t
+    # p computed as atan2(y, x), wrapped to [0, 2pi)
+    p = np.mod(np.arctan2(y, x), 2.0 * np.pi)
 
-        if (x == 0):
-            if (y >= 0):
-                p = pid2
-            else:
-                p = -pid2
-        else:
-            p = math.atan2(y, x)
-
-        if (p < 0):
-            p = p + pi2
-
-        points.append([r, t, p])
-
-    # make it a 2D array and return r, t, p separately
-    points = np.array(points)
-    r = points[:, 0]
-    t = points[:, 1]
-    p = points[:, 2]
-
-    return p, t
+    return r, t, p
 
 
 def fetch_default_launch_points(n: int = 128,
                                 r: float = 1.01
-                                ) -> NDArray[float]:
+                                ) -> NDArray[np.float64]:
     """Generate a default set of N launch points for mapfl.
 
     The N launch points will roughly uniformly sample the sphere
-    at a given radius using the `fibonacci_sphere` algorithm (default 1.01).
+    at a given radius using the `fibonacci_lattice` algorithm (default 1.01).
 
     Parameters
     ----------
-    n: int
+    n : int
         Number of launch points to generate.
-    r: float, optional
+    r : float, optional
         Radius at which to place the launch points. Defaults to 1.01.
 
     Returns
     -------
-    launch_points: ndarray
+    launch_points : ndarray
         A 3xN array of launch points.
 
     """
-    p, t = fibonacci_sphere(n)
-    return np.array((np.full_like(t, r), t, p), order='F')
+    rtp = fibonacci_lattice(n, r)
+    return np.stack(rtp)
 
 
 def combine_fwd_bwd_traces(fwd_traces: Traces,
@@ -318,7 +329,7 @@ def get_fieldline_polarity(inner_boundary: float,
     return polarity
 
 
-def get_fieldline_endpoints(traces) -> NDArray[float]:
+def get_fieldline_endpoints(traces: Traces | np.ndarray) -> np.ndarray:
     """
     Extract the start and end positions of each valid fieldline.
 
@@ -328,11 +339,13 @@ def get_fieldline_endpoints(traces) -> NDArray[float]:
 
     Parameters
     ----------
-    traces : ndarray
+    traces : Traces | ndarray
         A `Traces` object or a 3D NumPy array of shape (M, 3, N), where:
-            - M is the buffer length (number of points along a fieldline),
-            - 3 represents the coordinates (e.g., r, t, p),
-            - N is the number of fieldlines.
+
+        - M is the buffer length (number of points along a fieldline),
+        - 3 represents the coordinates (e.g., r, t, p),
+        - N is the number of fieldlines.
+
         NaN values represent unused buffer space.
 
     Returns
@@ -357,13 +370,13 @@ def get_fieldline_endpoints(traces) -> NDArray[float]:
     return np.take_along_axis(fls, idx, axis=0)
 
 
-def get_fieldline_npoints(traces) -> NDArray[int]:
+def get_fieldline_npoints(traces: Traces | np.ndarray) -> np.ndarray:
     """
     Count the number of valid (non-NaN) points in each fieldline.
 
     Parameters
     ----------
-    traces : Traces or ndarray
+    traces : Traces | ndarray
         A ``Traces`` object or a 3D array of shape (M, 3, N),
         where NaNs indicate unused portions of the buffer.
 
@@ -379,7 +392,7 @@ def get_fieldline_npoints(traces) -> NDArray[int]:
     return np.sum(~np.isnan(fls).any(axis=1), axis=0)
 
 
-def trim_fieldline_nan_buffer(traces) -> List[NDArray[float]]:
+def trim_fieldline_nan_buffer(traces: Traces | np.ndarray) -> List[np.ndarray]:
     """
     Remove NaN buffer regions from fieldlines.
 
@@ -388,7 +401,7 @@ def trim_fieldline_nan_buffer(traces) -> List[NDArray[float]]:
 
     Parameters
     ----------
-    traces : Traces or ndarray
+    traces : Traces | ndarray
         A `Traces` object or a 3D array of shape (M, 3, N).
 
     Returns
@@ -412,7 +425,7 @@ def trim_fieldline_nan_buffer(traces) -> List[NDArray[float]]:
 
 def combine_and_pad_fieldlines(arrs: list | tuple,
                                to_trace: bool = False,
-                               traced_to_boundary: Optional[NDArray[bool]] = None
+                               traced_to_boundary: Optional[NDArray[np.bool_]] = None
                                ) -> np.ndarray | Traces:
     """
     NaN-pad a list of variable-length 3D point arrays into a single dense array.
@@ -428,13 +441,24 @@ def combine_and_pad_fieldlines(arrs: list | tuple,
 
     Parameters
     ----------
-    arrs : Sequence[array-like]
+    arrs : Sequence[ArrayLike]
         List (or other sequence) of arrays, each with shape ``(3, Ni)``. The
         second dimension (``Ni``) may vary across arrays.
+    to_trace : bool, optional
+        If True, return a `Traces` object instead of a raw array.
+    traced_to_boundary : ndarray | None, optional
+        If ``to_trace=True``, this array it used to set the `traced_to_boundary` attribute
+        of the returned `Traces` object.
+        *This utility function is principally designed to be used in conjunction with*
+        :func:`~mapflpy.scripts.inter_domain_tracing`; *as such, this ndarray of boolean values
+        is returned from the `inter_domain_tracing` function and indicates which field lines
+        were traced to the boundary.*
+
+
 
     Returns
     -------
-    out : np.ndarray
+    out : ndarray
         Array of shape ``(max_len, 3, n)`` with dtype ``float``. For the i-th
         input array with length ``Ni``, the first ``Ni`` rows of ``out[:, :, i]``
         contain the transposed data (so that the point index is the first axis),
