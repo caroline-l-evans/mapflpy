@@ -111,7 +111,7 @@ sort_members = True
 exclusions = ['\\._abc_impl',
               'mapflpy.fortran',
               '_load_array_to_shared_memory',
-              'scripts._.*',
+              'scripts._inter_domain_tracing_from*',
               '_version',
               ]
 
@@ -129,43 +129,37 @@ autosummary_context = dict(pkgtree=node_tree_to_dict(node_tree))
 # ------------------------------------------------------------------------------
 extensions.append("sphinx.ext.autodoc")
 
-autodoc_typehints = "description"
+autodoc_typehints = "none"
 autodoc_member_order = 'bysource'
 autodoc_default_options = {
     "show-inheritance": True,
 }
-autodoc_type_aliases = {
-    "NumberType": "NumberType",
-    "PathType": "PathType",
-    "ArrayType": "ArrayType",
-    "MagneticFieldArrayType": "MagneticFieldArrayType",
-    "DirectionType": "DirectionType",
-    "MagneticFieldLabelType": "MagneticFieldLabelType",
-    "ContextType": "ContextType",
-}
 
 # ------------------------------------------------------------------------------
-# Napoleon Configuration
+# Numpydoc Configuration
 # ------------------------------------------------------------------------------
-extensions.append('sphinx.ext.napoleon')
+extensions.append("numpydoc")
 
-napoleon_use_ivar = True
-napoleon_preprocess_types = True
-napoleon_type_aliases = {
-    "NumberType": "~mapflpy.globals.NumberType",
-    "PathType": "~mapflpy.globals.PathType",
-    "ArrayType": "~mapflpy.globals.ArrayType",
-    "MagneticFieldArrayType": "~mapflpy.globals.MagneticFieldArrayType",
-    "DirectionType": "~mapflpy.globals.DirectionType",
-    "MagneticFieldLabelType": "~mapflpy.globals.MagneticFieldLabelType",
-    "ContextType": "~mapflpy.globals.ContextType",
-    "Traces": "~mapflpy.globals.Traces",
-    "Polarity": "~mapflpy.globals.Polarity",
-    "MagneticFieldFiles": "~mapflpy.data.MagneticFieldFiles",
-    "ndarray": "~numpy.ndarray",
-    "ChainMap": "~collections.ChainMap",
-    "Callable": "~collections.abc.Callable",
-    "MutableMapping": "~collections.abc.MutableMapping",
+numpydoc_xref_param_type = True
+numpydoc_show_class_members = False
+numpydoc_show_inherited_class_members = False
+numpydoc_xref_ignore = {"optional", "default", "of", "or"}
+numpydoc_xref_aliases = {
+    "NumberType": "mapflpy.globals.NumberType",
+    "PathType": "mapflpy.globals.PathType",
+    "ArrayType": "mapflpy.globals.ArrayType",
+    "MagneticFieldArrayType": "mapflpy.globals.MagneticFieldArrayType",
+    "DirectionType": "mapflpy.globals.DirectionType",
+    "MagneticFieldLabelType": "mapflpy.globals.MagneticFieldLabelType",
+    "ContextType": "mapflpy.globals.ContextType",
+    "Traces": "mapflpy.globals.Traces",
+    "Polarity": "mapflpy.globals.Polarity",
+    "MagneticFieldFiles": "mapflpy.data.MagneticFieldFiles",
+    "ndarray": "numpy.ndarray",
+    "ChainMap": "collections.ChainMap",
+    "Callable": "collections.abc.Callable",
+    "MutableMapping": "collections.abc.MutableMapping",
+    "ArrayLike": "numpy.typing.ArrayLike",
 }
 
 # ------------------------------------------------------------------------------
@@ -225,7 +219,7 @@ sphinx_gallery_conf = {
     "download_all_examples": False,
     "remove_config_comments": True,
     "filename_pattern": r"\.py$",
-    "plot_gallery": True,
+    "plot_gallery": False,
     "run_stale_examples": True,
     "matplotlib_animations": True,
 }

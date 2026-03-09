@@ -10,6 +10,14 @@ This module also includes a specialized function for inter-domain tracing, which
 tracing between two different magnetic domains (*viz.*, coronal and heliospheric) using
 multiprocessing. This function manages the complexities of boundary conditions and trace
 concatenation.
+
+.. note::
+   This module is designed to encapsulate standard "one-off" tracing workflows, *i.e.*:
+
+   - a :class:`~mapflpy.tracer.TracerMP` object(s) is instantiated with the appropriate magnetic field files and parameters,
+   - one or more tracing calls are performed on a set of launch points (with or without additional post-processing logic),
+   - and, lastly, the tracing object(s) is destroyed and the resultant traces are returned.
+
 """
 from __future__ import annotations
 import copy
@@ -18,7 +26,7 @@ from functools import partial
 from typing import Optional, Iterable, Tuple
 
 import numpy as np
-from numpy._typing import NDArray
+from numpy.typing import NDArray, ArrayLike
 
 from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, PathType, DirectionType
 from mapflpy.tracer import TracerMP
@@ -36,30 +44,34 @@ __all__ = [
 def run_forward_tracing(br: PathType,
                         bt: PathType,
                         bp: PathType,
-                        launch_points: Optional[Iterable[float]] = None,
+                        launch_points: Optional[ArrayLike] = None,
                         buffer_size: int = DEFAULT_BUFFER_SIZE,
                         **kwargs
                         ) -> Traces:
     """
     Run forward tracing using TracerMP.
 
-    This function initializes a `TracerMP` instance and calls the `trace_fwd` method to perform forward tracing
-    from the specified launch points. The launch points can be provided as an iterable of floats or None to use
-    default launch points. The buffer size can be adjusted to control the number of points in the trace geometry.
+    This function initializes a :class:`~mapflpy.tracer.TracerMP` instance and calls the
+    :meth:`~mapflpy.tracer._Tracer.trace_fwd` method to perform forward tracing from the specified
+    launch points. The buffer size can be adjusted to control the number of points in the trace geometry.
+
+    .. note::
+       If ``launch_points`` is None, default launch points will be used – a Fibonacci lattice
+       generated through the :func:`~mapflpy.utils.fetch_default_launch_points` function.
+
+       If ``launch_points`` is specified, it should be an array-like object that can be reshaped
+       into a (3, N) :class:`~numpy.ndarray`, where N is the number of launch points. Each column of this array
+       should represent a launch point in spherical coordinates (radius, theta, phi).
 
     Parameters
     ----------
-    br : PathType
-        Path to hdf4 or hdf5 Br file.
-    bt : PathType
-        Path to hdf4 or hdf5 Bt file.
-    bp : PathType
-        Path to hdf4 or hdf5 Bp file.
-    launch_points : Optional[Iterable[float]]
-        Launch points used by the tracer. If None, default launch points will be used.
-    buffer_size : int
+    br, bt, bp : PathType
+        Paths to hdf4 or hdf5 magnetic field files (:math:`B_r`, :math:`B_{\\theta}`, :math:`B_{\\phi}`).
+    launch_points : ArrayLike | None, optional
+        Launch points used by the tracer (see above note).
+    buffer_size : int, optional
         Buffer size for trace geometry. Default is 2000.
-    kwargs : dict
+    **kwargs
         Additional keyword arguments to be passed to the :any:`TracerMP` initialization.
 
     Returns
@@ -67,6 +79,9 @@ def run_forward_tracing(br: PathType,
     Traces
         A `Traces` object containing the results of the forward tracing.
 
+    See Also
+    --------
+    :meth:`~mapflpy.tracer._Tracer.trace_fwd`
     """
     with TracerMP(br, bt, bp, **kwargs) as tracer:
         return tracer.trace_fwd(launch_points, buffer_size)
@@ -75,37 +90,44 @@ def run_forward_tracing(br: PathType,
 def run_backward_tracing(br: PathType,
                          bt: PathType,
                          bp: PathType,
-                         launch_points: Optional[Iterable[float]] = None,
+                         launch_points: Optional[ArrayLike] = None,
                          buffer_size: int = DEFAULT_BUFFER_SIZE,
                          **kwargs
                          ) -> Traces:
     """
     Run backward tracing using TracerMP.
 
-    This function initializes a `TracerMP` instance and calls the `trace_bwd` method to perform forward tracing
-    from the specified launch points. The launch points can be provided as an iterable of floats or None to use
-    default launch points. The buffer size can be adjusted to control the number of points in the trace geometry.
+    This function initializes a :class:`~mapflpy.tracer.TracerMP` instance and calls the
+    :meth:`~mapflpy.tracer._Tracer.trace_bwd` method to perform backward tracing from the specified
+    launch points. The buffer size can be adjusted to control the number of points in the trace geometry.
+
+    .. note::
+       If ``launch_points`` is None, default launch points will be used – a Fibonacci lattice
+       generated through the :func:`~mapflpy.utils.fetch_default_launch_points` function.
+
+       If ``launch_points`` is specified, it should be an array-like object that can be reshaped
+       into a (3, N) :class:`~numpy.ndarray`, where N is the number of launch points. Each column of this array
+       should represent a launch point in spherical coordinates (radius, theta, phi).
 
     Parameters
     ----------
-    br : PathType
-        Path to hdf4 or hdf5 Br file.
-    bt : PathType
-        Path to hdf4 or hdf5 Bt file.
-    bp : PathType
-        Path to hdf4 or hdf5 Bp file.
-    launch_points : Optional[Iterable[float]]
-        Launch points used by the tracer. If None, default launch points will be used.
-    buffer_size : int
+    br, bt, bp : PathType
+        Paths to hdf4 or hdf5 magnetic field files (:math:`B_r`, :math:`B_{\\theta}`, :math:`B_{\\phi}`).
+    launch_points : ArrayLike | None, optional
+        Launch points used by the tracer (see above note).
+    buffer_size : int, optional
         Buffer size for trace geometry. Default is 2000.
-    kwargs : dict
+    **kwargs
         Additional keyword arguments to be passed to the :any:`TracerMP` initialization.
 
     Returns
     -------
     Traces
-        A `Traces` object containing the results of the backward tracing.
+        A `Traces` object containing the results of the forward tracing.
 
+    See Also
+    --------
+    :meth:`~mapflpy.tracer._Tracer.trace_bwd`
     """
     with TracerMP(br, bt, bp, **kwargs) as tracer:
         return tracer.trace_bwd(launch_points, buffer_size)
@@ -114,31 +136,35 @@ def run_backward_tracing(br: PathType,
 def run_fwdbwd_tracing(br: PathType,
                        bt: PathType,
                        bp: PathType,
-                       launch_points: Optional[Iterable[float]] = None,
+                       launch_points: Optional[ArrayLike] = None,
                        buffer_size: int = DEFAULT_BUFFER_SIZE,
                        **kwargs
                        ) -> Traces:
     """
     Run forward and backward tracing using TracerMP.
 
-    This function initializes a `TracerMP` instance and calls the `trace_fbwd` method to perform forward tracing
-    and backward tracing from the specified launch points. The launch points can be provided as an iterable of
-    floats or None to use default launch points. The buffer size can be adjusted to control the number of points
-    in the trace geometry. The traces are combined into a single `Traces` object.
+    This function initializes a :class:`~mapflpy.tracer.TracerMP` instance and calls the
+    :meth:`~mapflpy.tracer._Tracer.trace_fbwd` method to perform forward and backward tracing
+    from the specified launch points. The buffer size can be adjusted to control the number
+    of points in the trace geometry.
+
+    .. note::
+       If ``launch_points`` is None, default launch points will be used – a Fibonacci lattice
+       generated through the :func:`~mapflpy.utils.fetch_default_launch_points` function.
+
+       If ``launch_points`` is specified, it should be an array-like object that can be reshaped
+       into a (3, N) :class:`~numpy.ndarray`, where N is the number of launch points. Each column of this array
+       should represent a launch point in spherical coordinates (radius, theta, phi).
 
     Parameters
     ----------
-    br : PathType
-        Path to hdf4 or hdf5 Br file.
-    bt : PathType
-        Path to hdf4 or hdf5 Bt file.
-    bp : PathType
-        Path to hdf4 or hdf5 Bp file.
-    launch_points : Optional[Iterable[float]]
-        Launch points used by the tracer. If None, default launch points will be used.
-    buffer_size : int
+    br, bt, bp : PathType
+        Paths to hdf4 or hdf5 magnetic field files (:math:`B_r`, :math:`B_{\\theta}`, :math:`B_{\\phi}`).
+    launch_points : ArrayLike | None, optional
+        Launch points used by the tracer (see above note).
+    buffer_size : int, optional
         Buffer size for trace geometry. Default is 2000.
-    kwargs : dict
+    **kwargs
         Additional keyword arguments to be passed to the :any:`TracerMP` initialization.
 
     Returns
@@ -146,6 +172,9 @@ def run_fwdbwd_tracing(br: PathType,
     Traces
         A `Traces` object containing the results of the forward tracing.
 
+    See Also
+    --------
+    :meth:`~mapflpy.tracer._Tracer.trace_fbwd`
     """
     with TracerMP(br, bt, bp, **kwargs) as tracer:
         return tracer.trace_fbwd(launch_points, buffer_size)
@@ -157,7 +186,7 @@ def inter_domain_tracing(br_cor: PathType,
                          br_hel: PathType,
                          bt_hel: PathType,
                          bp_hel: PathType,
-                         launch_points: Optional[NDArray[float] | int] = None,
+                         launch_points: Optional[ArrayLike | int] = None,
                          buffer_size: int = DEFAULT_BUFFER_SIZE,
                          maxiter: int = 10,
                          r_interface: float = 30.0,
@@ -176,19 +205,11 @@ def inter_domain_tracing(br_cor: PathType,
 
     Parameters
     ----------
-    br_cor : str
-        Path to hdf4 or hdf5 Br file (coronal domain).
-    bt_cor : str
-        Path to hdf4 or hdf5 Bt file (coronal domain).
-    bp_cor : str
-        Path to hdf4 or hdf5 Bp file (coronal domain).
-    br_hel : str
-        Path to hdf4 or hdf5 Br file (heliospheric domain).
-    bt_hel : str
-        Path to hdf4 or hdf5 Bt file (heliospheric domain).
-    bp_hel : str
-        Path to hdf4 or hdf5 Bp file (heliospheric domain).
-    launch_points : any, optional
+    br_cor, bt_cor, bp_cor : PathType
+        Paths to hdf4 or hdf5 coronal magnetic field files (:math:`B_r`, :math:`B_{\\theta}`, :math:`B_{\\phi}`).
+    br_hel, bt_hel, bp_hel : PathType
+        Paths to hdf4 or hdf5 heliospheric magnetic field files (:math:`B_r`, :math:`B_{\\theta}`, :math:`B_{\\phi}`).
+    launch_points : ArrayLike | int | None, optional
         Launch points used by the tracer. Default is None.
     buffer_size : int, optional
         Buffer size for trace geometry. Default is 2000.
@@ -206,18 +227,18 @@ def inter_domain_tracing(br_cor: PathType,
 
     Returns
     -------
-    final_traces : list of numpy.ndarray
+    final_traces : list of ndarray
         A list of numpy arrays representing the concatenated tracing results for each launch point
         such that:
 
-            - The list is :math:`N` elements long, where :math:`N` is the number of launch points.
-            - Each element of the list is a numpy array with shape (3, :math:`M_i`) where
-              :math:`M_i` is the number of points in the trace for launch point :math:`i`.
+        - The list is :math:`N` elements long, where :math:`N` is the number of launch points.
+        - Each element of the list is a numpy array with shape (3, :math:`M_i`) where
+          :math:`M_i` is the number of points in the trace for launch point :math:`i`.
 
-    traced_to_boundary : numpy.ndarray
+    traced_to_boundary : ndarray
         A boolean array of size :math:`N` indicating whether trace :math:`i` trace hit the
         inner "cor" or outer "hel" boundary on both ends.
-    boundary_recross : numpy.ndarray
+    boundary_recross : ndarray
         A boolean array of size :math:`N` indicating whether trace :math:`i` recrossed the
         r_interface boundary after initially hitting it (i.e., whether the trace had to be
         iteratively traced back and forth between domains more than once).
@@ -230,8 +251,8 @@ def inter_domain_tracing(br_cor: PathType,
 
     .. attention::
        These tracer objects are initialized with the same ``**mapfl_params`` to ensure they
-       are configured consistently (with the one caveat that the coronal tracer has its `
-       `domain_r_max_`` set to the specified radial interface, while the heliospheric tracer has its
+       are configured consistently (with the one caveat that the coronal tracer has its
+       ``domain_r_max_`` set to the specified radial interface, while the heliospheric tracer has its
        ``domain_r_min_`` set to the same radial interface).
 
     See Also
@@ -267,27 +288,18 @@ def _inter_domain_tracing(cor_tracer: TracerMP,
     """
     Perform inter-domain tracing using two tracer processes.
 
-    This method sets up two tracer processes (*e.g.*, for different magnetic domains) that run concurrently.
-    It coordinates the tracing between these two processes via multiprocessing pipes. Because launch points
-    that start in the corona or heliosphere are handled differently, this function wraps the lower-level inter-domain
-    tracing methods to trace forward and backwards from launch points in any domain, joins them together, and returns
-    all traces.
+    This private method is exposed in the public API so that the internal tracing logic used for
+    interdomain tracing can be accessed with user-provided tracer objects (e.g., if users want
+    to manage their own tracer contexts or use different tracer configurations for the two domains).
+    This method receives two initialized tracer objects (one for each domain) that are run concurrently.
 
     Parameters
     ----------
-    br_cor : str
-        Path to hdf4 or hdf5 Br file (coronal domain).
-    bt_cor : str
-        Path to hdf4 or hdf5 Bt file (coronal domain).
-    bp_cor : str
-        Path to hdf4 or hdf5 Bp file (coronal domain).
-    br_hel : str
-        Path to hdf4 or hdf5 Br file (heliospheric domain).
-    bt_hel : str
-        Path to hdf4 or hdf5 Bt file (heliospheric domain).
-    bp_hel : str
-        Path to hdf4 or hdf5 Bp file (heliospheric domain).
-    launch_points : any, optional
+    cor_tracer : ~mapflpy.tracer.TracerMP
+        Multiprocessing compatible tracer object initialized with coronal magnetic field files.
+    hel_tracer : ~mapflpy.tracer.TracerMP
+        Multiprocessing compatible tracer object initialized with heliospheric magnetic field files.
+    launch_points : ArrayLike | int | None, optional
         Launch points used by the tracer. Default is None.
     buffer_size : int, optional
         Buffer size for trace geometry. Default is 2000.
@@ -299,43 +311,27 @@ def _inter_domain_tracing(cor_tracer: TracerMP,
         Longitudinal shift angle between the heliospheric domain and the coronal domain in RADIANS.
         This shift is ADDED to the coronal launch point phi positions. Default is 0.0.
     rtol : float, optional
-        Relative tolerance for `np.isclose` for checking a trace has hit the interface boundary. Default is 1e-5.
+        Relative tolerance for :func:`~numpy.isclose` for checking a trace has hit the interface boundary. Default is 1e-5.
     **mapfl_params
         Additional keyword arguments to be passed to both tracer initializations.
 
     Returns
     -------
-    final_traces : list of numpy.ndarray
+    final_traces : list of ndarray
         A list of numpy arrays representing the concatenated tracing results for each launch point
         such that:
 
-            - The list is :math:`N` elements long, where :math:`N` is the number of launch points.
-            - Each element of the list is a numpy array with shape (3, :math:`M_i`) where
-              :math:`M_i` is the number of points in the trace for launch point :math:`i`.
+        - The list is :math:`N` elements long, where :math:`N` is the number of launch points.
+        - Each element of the list is a numpy array with shape (3, :math:`M_i`) where
+          :math:`M_i` is the number of points in the trace for launch point :math:`i`.
 
-    traced_to_boundary : numpy.ndarray
+    traced_to_boundary : ndarray
         A boolean array of size :math:`N` indicating whether trace :math:`i` trace hit the
         inner "cor" or outer "hel" boundary on both ends.
-    boundary_recross : numpy.ndarray
+    boundary_recross : ndarray
         A boolean array of size :math:`N` indicating whether trace :math:`i` recrossed the
         r_interface boundary after initially hitting it (i.e., whether the trace had to be
         iteratively traced back and forth between domains more than once).
-
-    Notes
-    -----
-    The function uses two separate :class:`mapflpy.tracer.TracerMP` objects – one for the coronal
-    domain and one for the heliospheric domain – to avoid sharing ``mapflpy_fortran`` objects between
-    domains.
-
-    .. attention::
-       These tracer objects are initialized with the same ``**mapfl_params`` to ensure they
-       are configured consistently (with the one caveat that the coronal tracer has its `
-       `domain_r_max_`` set to the specified radial interface, while the heliospheric tracer has its
-       ``domain_r_min_`` set to the same radial interface).
-
-    See Also
-    --------
-    :func:`_inter_domain_tracing`
     """
 
     cor_tracer['domain_r_max_'] = r_interface
