@@ -3,12 +3,10 @@ Utility functions for processing fieldline traces.
 """
 from __future__ import annotations
 
-import math
-import random
-from typing import Tuple, List, Any, Optional, TypeVar, Sequence
+from typing import Tuple, List, Optional, Sequence
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from psi_io import interpolate_positions_from_hdf
 
 from mapflpy.globals import Traces, Polarity, ArrayType, PathType

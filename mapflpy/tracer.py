@@ -14,21 +14,21 @@ concrete implementations:
   other's state. This is required due to the global state held by the Fortran library.
 """
 from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from collections import ChainMap
+from collections.abc import MutableMapping
 from functools import wraps
 from multiprocessing import get_context
 from multiprocessing.shared_memory import SharedMemory
-from weakref import WeakSet
-from abc import ABC, abstractmethod
 from os import PathLike
-from collections import ChainMap
-from collections.abc import MutableMapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Iterable, Optional, Tuple, Callable, Literal
+from typing import Optional, Tuple
+from weakref import WeakSet
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-
 from psi_io import read_hdf_data
 
 from mapflpy.globals import (

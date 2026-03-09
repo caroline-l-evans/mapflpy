@@ -220,7 +220,7 @@ sphinx_gallery_conf = {
     "download_all_examples": False,
     "remove_config_comments": True,
     "filename_pattern": r"\.py$",
-    "plot_gallery": False,
+    "plot_gallery": True,
     "run_stale_examples": True,
     "matplotlib_animations": True,
 }

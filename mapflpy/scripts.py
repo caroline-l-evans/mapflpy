@@ -30,7 +30,7 @@ from numpy.typing import NDArray, ArrayLike
 
 from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, PathType, DirectionType
 from mapflpy.tracer import TracerMP
-from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points, combine_fwd_bwd_traces
+from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points
 
 __all__ = [
     "run_forward_tracing",
