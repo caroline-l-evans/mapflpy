@@ -54,9 +54,6 @@ _BS0 = np.zeros(3, order='F').astype(np.float64)
 _BS1 = np.zeros(3, order='F').astype(np.float64)
 """Sentinel array for :meth:`mapfl.trace` **bs1** parameter."""
 
-_S = np.zeros(1, order='F').astype(np.float64)
-"""Sentinel array for :meth:`mapfl.trace` **s** parameter."""
-
 
 def state_modifier(method):
     """
@@ -289,19 +286,20 @@ def _mapflpy_trace_listener(pipe):
             traces = np.full((buffer_size, *lps.shape), np.nan, order='F').astype(np.float64)
             s1 = np.zeros(lps.shape, np.float64, order='F')
             mask = np.full((1, lps.shape[1]), False, order='F')
+            integral = np.full((1, lps.shape[1]), 0.0, order='F')
             for i in range(lps.shape[1]):
                 trace_args = dict(
                     s0=lps[:, i],
                     s1=s1[:, i],
                     bs0=_BS0,
                     bs1=_BS1,
-                    s=_S,
+                    s=integral[:,i],
                     traced_to_r_boundary=mask[:, i],
                     svec=traces[:, :, i],
                     svec_n=buffer_size
                 )
                 mapfl.trace(**trace_args)
-            return Traces(traces, lps, s1, mask[0, :])
+            return Traces(traces, lps, s1, mask[0, :], integral[0,:])
 
         while True:
             method, *args = pipe.recv()
@@ -866,27 +864,29 @@ class Tracer(_Tracer):
             Structured container with traced fieldline geometry, starting points, ending points,
             and whether the fieldlines reached the radial boundary of the provided mesh.
         """
-        # `traces`, `s1`, and `mask` are initialized to Fortran-contiguous arrays
-        # and are used to store the traced fieldlines, their end points, and boundary masks.
+        # `traces`, `s1`, `mask`, and `integral` are initialized to Fortran-contiguous arrays
+        # and are used to store the traced fieldlines, their end points, boundary masks, and
+        # the scalar field integral along the field line (length by default).
         # `mapflpy_fortran` alters these arrays in-place during tracing.
         # Each array must have a dimensionality > 1 so that a numpy view is passed.
         traces = np.full((buff, *lps.shape), np.nan, order='F').astype(np.float64)
         s1 = np.zeros(lps.shape, np.float64, order='F')
         mask = np.full((1, lps.shape[1]), False, order='F')
+        integral = np.full((1, lps.shape[1]), 0.0, order='F')
 
-        # Since the parameters _bs0, _bs1, and _s are discarded after the trace,
-        # we can use the globals `_BS0`, `_BS1`, and `_S` as placeholders to avoid having
+        # Since the parameters _bs0 and _bs1 are discarded after the trace,
+        # we can use the globals `_BS0` and `_BS1` as placeholders to avoid having
         # to repeatedly create and destruct arrays.
         for i in range(lps.shape[1]):
             self._mapfl.trace(s0=lps[:, i],
                               s1=s1[:, i],
                               bs0=_BS0,
                               bs1=_BS1,
-                              s=_S,
+                              s=integral[:,i],
                               traced_to_r_boundary=mask[:, i],
                               svec=traces[:, :, i],
                               svec_n=buff)
-        return Traces(traces, lps, s1, mask[0, :])
+        return Traces(traces, lps, s1, mask[0, :], integral[0,:])
 
 
 class TracerMP(_Tracer):

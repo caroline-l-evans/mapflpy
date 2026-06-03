@@ -30,7 +30,7 @@ __all__ = [
 # It contains the geometry of the traces, their start and end positions,
 # and whether they were traced to a boundary.
 #------------------------------------------------------------------------------
-Traces = namedtuple('Traces', ['geometry', 'start_pos', 'end_pos', 'traced_to_boundary'])
+Traces = namedtuple('Traces', ['geometry', 'start_pos', 'end_pos', 'traced_to_boundary', 'integral'])
 Traces.__doc__ = (
     """Named tuple for storing magnetic fieldline trace information.
     
@@ -182,6 +182,8 @@ DEFAULT_FIELDS = MappingProxyType({
 DEFAULT_PARAMS = MappingProxyType({
     'integrate_along_fl_': False,
     'scalar_input_file_': '',
+    'weight_integral_by_area_': False,
+    'max_along_fl_': False,
     'verbose_': False,
     'cubic_': False,
     'trace_fwd_': False,

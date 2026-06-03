@@ -46,6 +46,7 @@ subroutine run (debug_level_, &
                 ch_map_output_file_, compute_ch_map_3d_, ch_map_3d_output_file_, &
                 write_traces_to_hdf_, write_traces_root_, write_traces_as_xyz_, &
                 integrate_along_fl_, scalar_input_file_, &
+                weight_integral_by_area_, max_along_fl_, &
                 verbose_, &
                 br, br_p, br_t, br_r, br_np, br_nt, br_nr, &
                 bt, bt_p, bt_t, bt_r, bt_np, bt_nt, bt_nr, &
@@ -131,6 +132,8 @@ subroutine run (debug_level_, &
       character(512) :: slogqbfile_
       logical :: integrate_along_fl_
       character(512) :: scalar_input_file_
+      logical :: weight_integral_by_area_
+      logical :: max_along_fl_
 
       logical :: verbose_
       character(100) :: confirm
@@ -273,6 +276,8 @@ subroutine run (debug_level_, &
       ! slogqbfile = slogqbfile_
       integrate_along_fl = integrate_along_fl_
       scalar_input_file = scalar_input_file_
+      weight_integral_by_area = weight_integral_by_area_
+      max_along_fl = max_along_fl_
 
       verbose = verbose_
 
@@ -527,8 +532,7 @@ subroutine run (debug_level_, &
 ! ! c
 ! ! c ****** Setup the field to integrate along if requested.
 ! ! c
-      if (integrate_along_fl) call set_up_integration
-
+      if (integrate_along_fl.or.max_along_fl) call set_up_scalar_field
 ! ! c
 ! ! c ****** Trace the field lines forward, set dir and/or map if requested.
 ! ! c

@@ -220,7 +220,8 @@ def combine_fwd_bwd_traces(fwd_traces: Traces,
                                              fwd_traces.geometry]),
                              bwd_traces.end_pos,
                              fwd_traces.end_pos,
-                             fwd_traces.traced_to_boundary & bwd_traces.traced_to_boundary)
+                             fwd_traces.traced_to_boundary & bwd_traces.traced_to_boundary,
+                             fwd_traces.integral + bwd_traces.integral)
     return combined_traces
 
 
@@ -423,7 +424,8 @@ def trim_fieldline_nan_buffer(traces: Traces | np.ndarray) -> List[np.ndarray]:
 
 def combine_and_pad_fieldlines(arrs: list | tuple,
                                to_trace: bool = False,
-                               traced_to_boundary: Optional[NDArray[np.bool_]] = None
+                               traced_to_boundary: Optional[NDArray[np.bool_]] = None,
+                               integral: Optional[NDArray[np.bool_]] = None
                                ) -> np.ndarray | Traces:
     """
     NaN-pad a list of variable-length 3D point arrays into a single dense array.
@@ -499,7 +501,7 @@ def combine_and_pad_fieldlines(arrs: list | tuple,
             geometry[:a.shape[1], :, i] = a.T   # (3, ni) -> (ni, 3)
             start_pos[:, i] = a[:,0]
             end_pos[:, i] = a[:, -1]
-        return Traces(geometry, start_pos, end_pos, traced_to_boundary)
+        return Traces(geometry, start_pos, end_pos, traced_to_boundary, integral)
 
 
 

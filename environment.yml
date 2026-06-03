@@ -30,6 +30,7 @@ dependencies:
   - ruff
   - coverage
   - nox
+  - pre-commit
 
   # -------- Docs --------
   - sphinx
