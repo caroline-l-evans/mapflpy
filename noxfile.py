@@ -70,7 +70,17 @@ def _build_env(session: nox.Session) -> Path:
         *pyproject["tool"][PROJECT_NAME].get("conda", []),
         channel="conda-forge"
     )
-    session.env.update(_darwin_sdk_env())
+    env_dir = Path(session.env_dir).resolve()
+    lib_dir = str(env_dir / "lib")
+    # Override CONDA_PREFIX so conda-forge gfortran's spec file uses this env's
+    # lib dir for its implicit library search paths, not the active outer env.
+    env = {"CONDA_PREFIX": str(env_dir)}
+    env.update(_darwin_sdk_env())
+    if platform.system() == "Darwin":
+        # Also pass an explicit rpath so delocate-wheel can bundle deps even
+        # when meson would otherwise embed a @loader_path-relative path.
+        env["LDFLAGS"] = (env.get("LDFLAGS", "") + f" -Wl,-rpath,{lib_dir}").strip()
+    session.env.update(env)
 
 
 def _dist_env(session: nox.Session) -> Path:

@@ -48,7 +48,7 @@ fortranobject_c = f2py_inc_dir / 'fortranobject.c'
 # ---- HDF5 dependencies
 hdf5_c = dependency('hdf5', required : true)
 hdf5f = declare_dependency(link_args : ['-lhdf5_fortran'], dependencies : [hdf5_c])
-hdf5f_hl = declare_dependency(link_args : ['-lhdf5hl_fortran'], dependencies : [hdf5_c])
+hdf5f_hl = declare_dependency(link_args : ['-lhdf5_hl_fortran'], dependencies : [hdf5_c])
 
 # Optional: OpenMP
 # omp_dep = dependency('openmp', required : false)
@@ -110,9 +110,19 @@ configure_file(
 install_subdir(
   'mapflpy',
   install_dir : py.get_install_dir(),
+  exclude_directories : ['fortran'],
   exclude_files: [
     '_version.py.in',
     '__pycache__',
     '*.pyc',
   ]
+)
+
+# Install mapflpy/fortran/__init__.py separately, so that the install_subdir
+# above can exclude the entire fortran/ directory.  Without this exclusion,
+# any compiled .so left in the source tree (e.g. from a dev install) would
+# be bundled into every wheel produced by "python -m build".
+install_data(
+  'mapflpy/fortran/__init__.py',
+  install_dir : py.get_install_dir() / 'mapflpy' / 'fortran',
 )
