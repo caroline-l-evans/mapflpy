@@ -45,9 +45,39 @@ Traces.__doc__ = (
         Array of shape (N, 3) containing the ending positions of each fieldline.
     traced_to_boundary : ndarray
         Boolean array of shape (N,) indicating whether each fieldline was traced to a boundary.
+    integral : ndarray
+        Array of shape (N,) containing the field aligned integral. By default the integral
+        is just the field line length, but certain mapflpy options can change this behavior, 
+        currently `integrate_along_fl_`, `scalar_input_file_`, `weight_integral_by_area_`, and 
+        max_along_fl_`.
     """
 )
 
+# ------------------------------------------------------------------------------
+# Named tuple for storing mapping information produced by some of the mapping
+# scripts in `mapflpy.scripts`
+# ------------------------------------------------------------------------------
+Mapping = namedtuple('Mapping', ['r', 't', 'p', 'traced_to_boundary', 'integral'])
+Mapping.__doc__ = (
+    """Named tuple for storing magnetic fieldline mapping information.
+
+    Attributes
+    ----------
+    r : ndarray
+        Array containing the radial positions of the mapping endpoints [R_sun]).
+    t : ndarray
+        Array containing the theta (co-latitude) positions of the mapping endpoints [radians].
+    p : ndarray
+        Array containing the phi (longitude) positions of the mapping endpoints [radians].
+    traced_to_boundary : ndarray
+        Boolean array indicating whether each fieldline was traced to a boundary.
+    integral : ndarray
+        Array containing the values of the field line integral. By default the integral
+        is just the field line length, but certain mapflpy options can change this behavior, 
+        currently `integrate_along_fl_`, `scalar_input_file_`, `weight_integral_by_area_`, and 
+        `max_along_fl_`.
+    """
+)
 
 # ------------------------------------------------------------------------------
 # Type aliases for improved code readability.

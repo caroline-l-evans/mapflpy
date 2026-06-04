@@ -20,15 +20,16 @@ concatenation.
 
 """
 from __future__ import annotations
+import concurrent.futures
 import copy
 from contextlib import ExitStack
 from functools import partial
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, Tuple, Callable
 
 import numpy as np
 from numpy.typing import NDArray, ArrayLike
 
-from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, PathType, DirectionType
+from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points
 
@@ -178,6 +179,240 @@ def run_fwdbwd_tracing(br: PathType,
     """
     with TracerMP(br, bt, bp, **kwargs) as tracer:
         return tracer.trace_fbwd(launch_points, buffer_size)
+
+
+def map_field_lines_in_parallel(trace_function: Callable,
+                                r_in: ArrayLike,
+                                t_in: ArrayLike,
+                                p_in: ArrayLike,
+                                nproc: int = 4):
+    """Map field lines from r, t, p positions in parallel using a given tracing script.
+
+    The `trace_function` is a callable function that wraps the desired mapflpy script that uses TracerMP in
+    the background. It must only accept one argument (`launch_points`) and otherwise wraps a tracing
+    script that is defined with any specific keywords that determine how the trace is done.
+    Currently only :func:`run_forward_tracing`, :func:`run_backward_tracing` make sense to wrap here.
+
+    The r,t,p input arrays can be any shape (1D, 2D, 3D, etc.) as long as it is consistent.
+
+    .. warning::
+       The wrapped trace function should specify the `buffer_size` keyword to a small number (e.g. 3)
+       since the trace geometry is not used anyway. This is essential for keeping the memory footprint
+       small and for the mapping to compute as quickly as possible.
+
+    Parameters
+    ----------
+    trace_function : Callable
+        A function that wraps the mapflpy forward or backwards tracing script to call in parallel
+        (:func:`run_forward_tracing`, :func:`run_backward_tracing`) and sets the desired parameters to
+        run the wrapped script with.
+        Only the endpoints are used, so only one of forward or backwards mapping makes sense.
+    r_in : ArrayLike
+        An N-Dimensional array of radial positions to map from.
+    t_in : ArrayLike
+        An N-Dimensional array of theta positions to map from (shape must match `r_in`).
+    p_in : ArrayLike
+        An N-Dimensional array of phi positions to map from (shape must match `r_in`).
+    nproc : int, optional
+        The number of processes to spawn. This should be equal to or less than the number of threads
+        that can be used on the machine.
+
+    Returns
+    -------
+    mapping : :class:`~mapflpy.globals.Mapping`
+        A namedtuple containing the mapping results (:class:`mapflpy.globals.Mapping`).
+
+    See Also
+    --------
+    :func:`map_pt_forward`
+    :func:`map_pt_backward`
+    :func:`run_forward_tracing`
+    :func:`run_backward_tracing`
+    """
+
+    # convert the r,t,p positions to a list of launchpoints split into nproc chunks
+    r1d = r_in.ravel()
+    t1d = t_in.ravel()
+    p1d = p_in.ravel()
+    lp_all = np.stack([r1d, t1d, p1d], axis=0)
+    lp_chunks = np.array_split(lp_all, nproc, axis=1)
+
+    # run the mapping function on nprocs
+    with concurrent.futures.ThreadPoolExecutor(max_workers=nproc) as executor:
+        results = list(executor.map(trace_function, lp_chunks))
+
+    # collect the results back into one array
+    end_pos_1d = np.concatenate([result.end_pos for result in results], axis=1)
+    traced_to_boundary_1d = np.concatenate([result.traced_to_boundary for result in results])
+    integral_1d = np.concatenate([result.integral for result in results])
+
+    # reshape and return the Mapping object
+    r_out = np.reshape(end_pos_1d[0, :], r_in.shape)
+    t_out = np.reshape(end_pos_1d[1, :], t_in.shape)
+    p_out = np.reshape(end_pos_1d[2, :], p_in.shape)
+    traced_to_boundary = np.reshape(traced_to_boundary_1d, r_in.shape)
+    integral = np.reshape(integral_1d, r_in.shape)
+
+    return Mapping(r_out, t_out, p_out, traced_to_boundary, integral)
+
+
+def map_pt_forward(br: PathType,
+                   bt: PathType,
+                   bp: PathType,
+                   p1d: ArrayLike,
+                   t1d: ArrayLike,
+                   radius: float = 1.0,
+                   timeout: float = 3600.,
+                   context: Optional[ContextType] = 'fork',
+                   nproc: int = 4,
+                   **mapfl_params):
+    """Map field lines forwards on a phi, theta grid at constant radius.
+
+    The inputs are similar to instantiating a Tracer class except one also
+    specifies 1D arrays that define a grid in phi, theta and a radius to map from.
+
+    Currently the mapping radius defaults to 1.0 or must be set. In the future
+    this will default to the inner radius of the main mesh of the B files.
+
+    Notes
+    -----
+    This is a very specific helper function for a common task. Generic mappings
+    can be built by following this as an example for wrapping :func:`map_field_lines_in_parallel`.
+
+    Parameters
+    ----------
+    br : PathType
+        Path to the Br magnetic field file.
+    bt : PathType
+        Path to the Bt magnetic field file.
+    bp : PathType
+        Path to the Bp magnetic field file.
+    p1d : ArrayLike
+        A 1D numpy array of phi (longitude) positions in radians that will be used to
+        build the mapping grid.
+    t1d : ArrayLike
+        A 1D numpy array of theta (co-latitude) positions in radians that will be used to
+        build the mapping grid.
+    radius : float, optional
+        Radius to map forward from. Default 1.0.
+    timeout : float, optional
+        Timeout in seconds for interprocess communication. Default is 3600 seconds.
+    context : ContextType, optional
+        The multiprocessing context to use when spawning the subprocess. Since many
+        processes are launched, generally 'fork' is recommended. Behavior may depend
+        on the system architecture. Default is 'fork'.
+    nproc : int, optional
+        The number of processes to spawn. This should be equal to or less than the number of threads
+        that can be used on the machine.
+    **mapfl_params : dict
+        Additional tracing parameters passed to the subprocess.
+
+    Returns
+    -------
+    mapping : :class:`~mapflpy.globals.Mapping`
+        A namedtuple containing the mapping results (:class:`mapflpy.globals.Mapping`).
+
+    See Also
+    --------
+    :func:`map_field_lines_in_parallel`
+    """
+
+    # build a 2D grid of p and t locations from the input 1D arrays
+    p2d, t2d = np.meshgrid(p1d, t1d)
+    # the r locations are on the specified radius
+    r2d = np.ones_like(p2d)*radius
+
+    # define the wrapped trace function
+    def trace_function(launch_points):
+        traces = run_forward_tracing(br, bt, bp, launch_points=launch_points,
+                                     buffer_size=3, context=context, timeout=timeout,
+                                     **mapfl_params)
+        return traces
+
+    # compute the mapping
+    mapping = map_field_lines_in_parallel(trace_function, r2d, t2d, p2d, nproc=nproc)
+
+    return mapping
+
+
+def map_pt_backward(br: PathType,
+                    bt: PathType,
+                    bp: PathType,
+                    p1d: ArrayLike,
+                    t1d: ArrayLike,
+                    radius: float = 30.0,
+                    timeout: float = 3600.,
+                    context: Optional[ContextType] = 'fork',
+                    nproc: int = 4,
+                    **mapfl_params):
+    """Map field lines backwards on a phi, theta grid at constant radius.
+
+    The inputs are similar to instantiating a Tracer class except one also
+    specifies 1D arrays that define a grid in phi, theta and a radius to map from.
+
+    Currently the mapping radius defaults to 30 or must be set. In the future
+    this will default to the outer radius of the main mesh of the B files.
+
+    Notes
+    -----
+    This is a very specific helper function for a common task. Generic mappings
+    can be built by following this as an example for wrapping :func:`map_field_lines_in_parallel`.
+
+    Parameters
+    ----------
+    br : PathType
+        Path to the Br magnetic field file.
+    bt : PathType
+        Path to the Bt magnetic field file.
+    bp : PathType
+        Path to the Bp magnetic field file.
+    p1d : ArrayLike
+        A 1D numpy array of phi (longitude) positions in radians that will be used to
+        build the mapping grid.
+    t1d : ArrayLike
+        A 1D numpy array of theta (co-latitude) positions in radians that will be used to
+        build the mapping grid.
+    radius : float, optional
+        Radius to map backwards from. Default 30.0.
+    timeout : float, optional
+        Timeout in seconds for interprocess communication. Default is 3600 seconds.
+    context : ContextType, optional
+        The multiprocessing context to use when spawning the subprocess. Since many
+        processes are launched, generally 'fork' is recommended. Behavior may depend
+        on the system architecture. Default is 'fork'.
+    nproc : int, optional
+        The number of processes to spawn. This should be equal to or less than the number of threads
+        that can be used on the machine.
+    **mapfl_params : dict
+        Additional tracing parameters passed to the subprocess.
+
+    Returns
+    -------
+    mapping : :class:`~mapflpy.globals.Mapping`
+        A namedtuple containing the mapping results (:class:`mapflpy.globals.Mapping`).
+
+    See Also
+    --------
+    :func:`map_field_lines_in_parallel`
+    """
+
+
+    # build a 2D grid of p and t locations from the input 1D arrays
+    p2d, t2d = np.meshgrid(p1d, t1d)
+    # the r locations are on the specified radius
+    r2d = np.ones_like(p2d)*radius
+
+    # define the wrapped trace function
+    def trace_function(launch_points):
+        traces = run_backward_tracing(br, bt, bp, launch_points=launch_points,
+                                      buffer_size=3, context=context, timeout=timeout,
+                                      **mapfl_params)
+        return traces
+
+    # compute the mapping
+    mapping = map_field_lines_in_parallel(trace_function, r2d, t2d, p2d, nproc=nproc)
+
+    return mapping
 
 
 def inter_domain_tracing(br_cor: PathType,
