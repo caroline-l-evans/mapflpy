@@ -47,8 +47,16 @@ fortranobject_c = f2py_inc_dir / 'fortranobject.c'
 
 # ---- HDF5 dependencies
 hdf5_c = dependency('hdf5', required : true)
-hdf5f = declare_dependency(link_args : ['-lhdf5_fortran'], dependencies : [hdf5_c])
-hdf5f_hl = declare_dependency(link_args : ['-lhdf5_hl_fortran'], dependencies : [hdf5_c])
+
+# On Linux, meson resolves pkg-config deps to absolute library paths, which
+# drops the -L flag from the link command.  Bare -lhdf5_fortran then fails
+# because the conda env's lib/ is never on the search path.  Use find_library
+# with an explicit dir (taken from the HDF5 pkg-config libdir) so both macOS
+# and Linux get a resolved path, not a bare -l flag.
+_hdf5_libdir = hdf5_c.get_variable(pkgconfig : 'libdir', default_value : '')
+_hdf5_dirs   = _hdf5_libdir != '' ? [_hdf5_libdir] : []
+hdf5f    = cc.find_library('hdf5_fortran',    dirs : _hdf5_dirs, required : true)
+hdf5f_hl = cc.find_library('hdf5_hl_fortran', dirs : _hdf5_dirs, required : true)
 
 # Optional: OpenMP
 # omp_dep = dependency('openmp', required : false)
