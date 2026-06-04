@@ -77,9 +77,15 @@ def _build_env(session: nox.Session) -> Path:
     env = {"CONDA_PREFIX": str(env_dir)}
     env.update(_darwin_sdk_env())
     if platform.system() == "Darwin":
-        # Also pass an explicit rpath so delocate-wheel can bundle deps even
-        # when meson would otherwise embed a @loader_path-relative path.
+        # Pass an explicit rpath so delocate-wheel can bundle deps even when
+        # meson would otherwise embed a @loader_path-relative path.
         env["LDFLAGS"] = (env.get("LDFLAGS", "") + f" -Wl,-rpath,{lib_dir}").strip()
+        # conda-forge's ld64_osx-64 linker may be invoked from the micromamba
+        # pkgs cache path (hard-linked), so @loader_path/../lib/libtapi.dylib
+        # resolves against the cache dir rather than the installed env.  Set a
+        # fallback so dyld finds libtapi.dylib in the env's lib/ dir instead.
+        existing = os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
+        env["DYLD_FALLBACK_LIBRARY_PATH"] = f"{lib_dir}:{existing}".strip(":")
     session.env.update(env)
 
 
