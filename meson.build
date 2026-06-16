@@ -56,7 +56,14 @@ hdf5_c = dependency('hdf5', required : true)
 _hdf5_libdir = hdf5_c.get_variable(pkgconfig : 'libdir', default_value : '')
 _hdf5_dirs   = _hdf5_libdir != '' ? [_hdf5_libdir] : []
 hdf5f    = cc.find_library('hdf5_fortran',    dirs : _hdf5_dirs, required : true)
-hdf5f_hl = cc.find_library('hdf5_hl_fortran', dirs : _hdf5_dirs, required : true)
+
+# The high-level Fortran library ships under two different names depending on
+# the HDF5 build system: 'hdf5_hl_fortran' (CMake builds) and 'hdf5hl_fortran'
+# (autotools / conda-forge builds).  Try the CMake name first, then fall back.
+hdf5f_hl = cc.find_library('hdf5_hl_fortran', dirs : _hdf5_dirs, required : false)
+if not hdf5f_hl.found()
+  hdf5f_hl = cc.find_library('hdf5hl_fortran', dirs : _hdf5_dirs, required : true)
+endif
 
 # Optional: OpenMP
 # omp_dep = dependency('openmp', required : false)
