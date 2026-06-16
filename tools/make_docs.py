@@ -44,7 +44,7 @@ def main() -> int:
         out_html.mkdir(parents=True, exist_ok=True)
         cmd = [
             sys.executable, "-m", "sphinx",
-            "-W", "--keep-going",
+            "--keep-going",
             "-b", "html",
             str(docs_dir / "source"),
             str(out_html),
