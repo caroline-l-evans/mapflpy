@@ -21,13 +21,13 @@ import matplotlib.pyplot as plt
 
 from mapflpy.scripts import inter_domain_tracing
 from mapflpy.utils import plot_traces, fetch_default_launch_points
-from mapflpy.data import fetch_cor_magfiles, fetch_hel_magfiles
+from psi_data import fetch_mas_data
 
 # %%
 # Load in the coronal and heliospheric magnetic field files
 
-cor_files = fetch_cor_magfiles()
-hel_files = fetch_hel_magfiles()
+cor_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
+hel_files = fetch_mas_data(domains="hel", variables="br,bt,bp")
 
 # %%
 # Define 100 launch points using the fibonacci lattice method (at 1 Rsun)

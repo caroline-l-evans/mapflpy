@@ -25,4 +25,4 @@ Required Dependencies
 Optional Dependencies
 ----------------------
 - `matplotlib <https://matplotlib.org/>`_
-- `pooch <https://www.fatiando.org/pooch/>`_
+- `psi-data-utils <https://pypi.org/project/psi-data-utils/>`_

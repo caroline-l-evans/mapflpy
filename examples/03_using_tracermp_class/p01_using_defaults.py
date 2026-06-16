@@ -20,15 +20,16 @@ import matplotlib.pyplot as plt
 
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import plot_traces
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 
 # %%
 # Load in the magnetic field files
 #
-# The :func:`~mapflpy.data.fetch_cor_magfiles` function returns a tuple of file paths
-# corresponding to the radial, theta, and phi components of the magnetic field data.
+# The :func:`~psi_data.fetch_mas_data` function returns a named tuple of file paths
+# corresponding to the radial, theta, and phi components of the magnetic field data
+# (with fields like ``cor_br``, ``cor_bt``, ``cor_bp``).
 
-magnetic_field_files = fetch_cor_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 
 # %%
 # The :class:`~mapflpy.tracer.TracerMP` class can be instantiated directly with the magnetic

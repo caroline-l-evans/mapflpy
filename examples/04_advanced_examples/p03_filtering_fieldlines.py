@@ -32,13 +32,13 @@ import matplotlib.pyplot as plt
 
 from mapflpy.tracer import Tracer
 from mapflpy.utils import plot_traces, get_fieldline_polarity, plot_sphere
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 from mapflpy.globals import Polarity
 
 # %%
 # Load in the magnetic field files and instantiate the Tracer
 
-magnetic_field_files = fetch_cor_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 tracer = Tracer(*magnetic_field_files)
 
 # %%
@@ -85,14 +85,14 @@ traces = tracer.trace_fbwd(launch_points=launch_points)
 
 polarity = get_fieldline_polarity(1,
                                   30,
-                                  magnetic_field_files.br,
+                                  magnetic_field_files.cor_br,
                                   traces,
                                   atol=1e-2)
 
 # %%
 # First, we plot the magnetic field sphere at 1 Rsun for context using the
 # :func:`~mapflpy.utils.plot_sphere` utility function.
-values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.br,
+values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.cor_br,
                                                            1.0, None, None,)
 ax = plt.figure().add_subplot(projection='3d')
 plot_sphere(values.T, 1.0, theta_scale, phi_scale, clim=(-10, 10), ax=ax)

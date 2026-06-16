@@ -24,15 +24,15 @@ import numpy as np
 
 from mapflpy.scripts import run_forward_tracing
 from mapflpy.utils import plot_traces, plot_sphere
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 
 
 # %%
 # Load in the magnetic field files
 #
-# The :func:`~mapflpy.data.fetch_cor_magfiles` function returns a tuple of file paths
+# The :func:`~psi_data.fetch_mas_data` function returns a named tuple of file paths
 # corresponding to the radial, theta, and phi components of the magnetic field data.
-magnetic_field_files = fetch_cor_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 
 # %%
 # Run forward tracing using the default launch points
@@ -55,7 +55,7 @@ print("Geometry shape:", traces.geometry.shape)
 # `psi-io <https://predsci.com/doc/psi-io/>`_ :py:func:`~psi_io.psi_io.np_interpolate_slice_from_hdf` is
 # used to linearly interpolate a 2D slice of data at the solar surface (r=1.0 Rs), using the
 # radial component of the magnetic field.
-values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.br,
+values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.cor_br,
                                                                1.0, None, None,)
 
 # %%

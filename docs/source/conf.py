@@ -154,7 +154,6 @@ numpydoc_xref_aliases = {
     "ContextType": "mapflpy.globals.ContextType",
     "Traces": "mapflpy.globals.Traces",
     "Polarity": "mapflpy.globals.Polarity",
-    "MagneticFieldFiles": "mapflpy.data.MagneticFieldFiles",
     "ndarray": "numpy.ndarray",
     "ChainMap": "collections.ChainMap",
     "Callable": "collections.abc.Callable",
@@ -192,9 +191,9 @@ intersphinx_mapping = {
         # (INV / "matplotlib-objects.inv").as_posix(),
         None
     ),
-    "pooch": (
-        "https://www.fatiando.org/pooch/latest/",
-        # (INV / "pooch-objects.inv").as_posix(),
+    "psi_data": (
+        "https://predsci.com/doc/psi-data-utils/",
+        # (INV / "psi-data-utils-objects.inv").as_posix(),
         None
     ),
     "psi_io": (

@@ -23,14 +23,15 @@ from psi_io import read_hdf_data
 
 from mapflpy.tracer import Tracer
 from mapflpy.utils import plot_traces, fetch_default_launch_points
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 
 # %%
 # Load in the magnetic field files
 #
-# The :func:`~mapflpy.data.fetch_cor_magfiles` function returns a tuple of file paths
-# corresponding to the radial, theta, and phi components of the magnetic field data.
-magnetic_field_files = fetch_cor_magfiles()
+# The :func:`~psi_data.fetch_mas_data` function returns a named tuple of file paths
+# corresponding to the radial, theta, and phi components of the magnetic field data
+# (with fields like ``cor_br``, ``cor_bt``, ``cor_bp``).
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 
 # %%
 # The :class:`~mapflpy.tracer.Tracer` class is, for demonstration purposes, instantiated
@@ -42,9 +43,9 @@ tracer = Tracer()
 # Here we use `psi-io <https://predsci.com/doc/psi-io/>`_ to read in the magnetic field data
 # into memory as NumPy arrays (using :py:func:`~psi_io.psi_io.read_hdf_data`), and then assign
 # them to the respective attributes of the :class:`~mapflpy.tracer.Tracer` instance.
-br = read_hdf_data(magnetic_field_files.br)
-bt = read_hdf_data(magnetic_field_files.bt)
-bp = read_hdf_data(magnetic_field_files.bp)
+br = read_hdf_data(magnetic_field_files.cor_br)
+bt = read_hdf_data(magnetic_field_files.cor_bt)
+bp = read_hdf_data(magnetic_field_files.cor_bp)
 
 tracer.br = br
 tracer.bt = bt

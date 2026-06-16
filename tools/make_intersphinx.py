@@ -19,7 +19,7 @@ DEFAULT_SOURCES = {
     "numpy":       "https://numpy.org/doc/stable/objects.inv",
     "matplotlib":  "https://matplotlib.org/stable/objects.inv",
     "pytest":      "https://docs.pytest.org/en/stable/objects.inv",
-    "pooch":       "https://www.fatiando.org/pooch/latest/objects.inv",
+    "psi-data-utils": "https://predsci.com/doc/psi-data-utils/objects.inv",
     "scipy":       "https://docs.scipy.org/doc/scipy/objects.inv",
 }
 

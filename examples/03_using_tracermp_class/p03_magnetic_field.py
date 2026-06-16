@@ -21,17 +21,18 @@ import matplotlib.pyplot as plt
 
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import plot_traces
-from mapflpy.data import fetch_cor_magfiles, fetch_hel_magfiles
+from psi_data import fetch_mas_data
 
 # %%
 # Load in the magnetic field files
 #
-# The :func:`~mapflpy.data.fetch_cor_magfiles` and :func:`~mapflpy.data.fetch_hel_magfiles` functions
-# return tuples of file paths corresponding to the radial, theta, and phi components of the
-# magnetic field data for the coronal and heliospheric domains (respectively).
+# The :func:`~psi_data.fetch_mas_data` function returns a named tuple of file paths
+# corresponding to the radial, theta, and phi components of the magnetic field data for the
+# requested domain (with fields like ``cor_br``, ``cor_bt``, ``cor_bp`` for the coronal domain
+# and ``hel_br``, ``hel_bt``, ``hel_bp`` for the heliospheric domain).
 
-magnetic_field_files = fetch_cor_magfiles()
-hel_magnetic_field_files = fetch_hel_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
+hel_magnetic_field_files = fetch_mas_data(domains="hel", variables="br,bt,bp")
 
 # %%
 # The :class:`~mapflpy.tracer.TracerMP` class is, for demonstration purposes, instantiated
@@ -56,9 +57,9 @@ hel_magnetic_field_files = fetch_hel_magfiles()
 
 with TracerMP(context=CONTEXT) as tracer:
     with TracerMP(context=CONTEXT) as tracer_hel:
-        tracer.br = magnetic_field_files.br
-        tracer.bt = magnetic_field_files.bt
-        tracer.bp = magnetic_field_files.bp
+        tracer.br = magnetic_field_files.cor_br
+        tracer.bt = magnetic_field_files.cor_bt
+        tracer.bp = magnetic_field_files.cor_bp
 
         tracer_hel.load_fields(*hel_magnetic_field_files)
         tracer_hel['domain_r_min_'] = 30

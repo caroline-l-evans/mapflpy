@@ -26,12 +26,12 @@ from psi_io import np_interpolate_slice_from_hdf
 
 from mapflpy.tracer import Tracer
 from mapflpy.utils import get_fieldline_polarity, plot_traces, plot_sphere
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 
 # %%
 # Load in the magnetic field files and instantiate the Tracer
 
-magnetic_field_files = fetch_cor_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 tracer = Tracer(*magnetic_field_files)
 
 # %%
@@ -71,7 +71,7 @@ traces = tracer.trace_fwd(n=256)
 
 polarity = get_fieldline_polarity(1,
                                   30,
-                                  magnetic_field_files.br,
+                                  magnetic_field_files.cor_br,
                                   traces,
                                   atol=1e-2)
 print(f"Polarity array of size: {polarity.size}")
@@ -98,7 +98,7 @@ colors = polarity_cmap((polarity.astype(int) + 2) / 4)  # Normalize to [0, 1] fo
 # radial component of the magnetic field.
 ax = plt.figure().add_subplot(projection='3d')
 plot_traces(traces, ax=ax, colors=colors)
-values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.br,
+values, theta_scale, phi_scale = np_interpolate_slice_from_hdf(magnetic_field_files.cor_br,
                                                            1.0, None, None,)
 plot_sphere(values.T, 1.0, theta_scale, phi_scale, clim=(-10, 10), ax=ax)
 

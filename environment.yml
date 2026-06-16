@@ -39,7 +39,6 @@ dependencies:
   - sphinx-copybutton
   - numpydoc
   - matplotlib
-  - pooch
   - scipy
 
   # -------- Scripts --------
@@ -51,5 +50,6 @@ dependencies:
   # -------- Pip installs --------
   - pip
   - pip:
-      - psi-io    # Python runtime package
-      - pthree    # Documentation building
+      - psi-io           # Python runtime package
+      - psi-data-utils   # Sample dataset fetching (replaces local data module)
+      - pthree           # Documentation building

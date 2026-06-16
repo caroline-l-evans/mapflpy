@@ -22,15 +22,15 @@ import numpy as np
 
 from mapflpy.scripts import run_fwdbwd_tracing
 from mapflpy.utils import plot_traces, fetch_default_launch_points
-from mapflpy.data import fetch_cor_magfiles
+from psi_data import fetch_mas_data
 
 
 # %%
 # Load in the magnetic field files
 #
-# The :func:`~mapflpy.data.fetch_cor_magfiles` function returns a tuple of file paths
+# The :func:`~psi_data.fetch_mas_data` function returns a named tuple of file paths
 # corresponding to the radial, theta, and phi components of the magnetic field data.
-magnetic_field_files = fetch_cor_magfiles()
+magnetic_field_files = fetch_mas_data(domains="cor", variables="br,bt,bp")
 
 # %%
 # Define launch points using the fibonacci lattice method.
