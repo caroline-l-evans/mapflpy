@@ -14,10 +14,11 @@ area expansion is also possible. If no scalars are provided, the field-line leng
 is provided by default.
 """
 import os
+import tempfile
 
 import numpy as np
-from psi_io import np_interpolate_slice_from_hdf
-import psi_io.data
+from psi_io import wrhdf_3d, interpolate_positions_from_hdf
+from psi_data import fetch_mas_data
 
 # sphinx_gallery_start_ignore
 if 'SPHINX_GALLERY_BUILD' not in os.environ:
@@ -36,28 +37,11 @@ from mapflpy.scripts import map_pt_forward, map_pt_backward
 # They are from a CORHEL-MAS thermodynamic MHD calculation for CR2282.
 # Becuase they are not part of the standard datasets in mapflpy or psi-io
 # (yet), we fetch them manually and place them in the default cache location.
-file_dict = {
-    'rho': 'cr2282-thermo2-cor/t002.h5',
-    't': 'cr2282-thermo2-cor/t002.h5',
-    'br': "cr2282-thermo2-cor/br002.h5",
-    'bt': "cr2282-thermo2-cor/bt002.h5",
-    'bp': "cr2282-thermo2-cor/bp002.h5",
-    'ones': "misc/dummy_ones_3d.h5",
-}
-local_path = psi_io.data.FETCHER.path
 
 
-def get_psi_asset(file):
-    return psi_io.data.pooch.retrieve(
-        url=f"https://www.predsci.com/doc/assets/{file}",
-        known_hash=None,
-        fname=os.path.basename(file),
-        path=f'{local_path}/{os.path.dirname(file)}'
-    )
-
-
-datasets = {key: get_psi_asset(file) for key, file in file_dict.items()}
-magnetic_field_files = [datasets[key] for key in ['br', 'bt', 'bp']]
+files = fetch_mas_data(domains="cor", variables="br,bt,bp,t")
+magnetic_field_files = files.cor_br, files.cor_bt, files.cor_bp
+scalar_field_file = files.cor_t
 
 # %%
 # First we compute a basic map by mapping field lines forward into the
@@ -107,18 +91,17 @@ plt.show()
 # temperature with a second mapping call. The average temperature
 # along the magnetic field can be determined by dividing this integral
 # by the length integral.
-scalar_input_file = datasets['t']
 mapping2 = map_pt_forward(*magnetic_field_files, p, t, radius=radius, nproc=nproc,
-                          integrate_along_fl_=True, scalar_input_file_=scalar_input_file)
+                          integrate_along_fl_=True, scalar_input_file_=scalar_field_file)
 
 # compute the average temperature in code units by dividing the two integrals
 avg_t_mas = mapping2.integral/mapping.integral
 
 # convert it to MK using the MAS normalizations
-import psi_io._units
+from psi_io.units import FN_T
 import astropy.units as u
 
-avg_t_mk = (avg_t_mas*psi_io._units.FN_T).to(u.MK)
+avg_t_mk = (avg_t_mas*FN_T).to(u.MK)
 ax = plt.figure().add_subplot()
 ax.pcolormesh(np.rad2deg(p), 90 - np.rad2deg(t), avg_t_mk.value,
               cmap='rainbow', shading='gouraud', clim=(0.5, 2.5))
@@ -139,9 +122,19 @@ p_i = 0.5*(p[1:] + p[0:-1])
 t_i = 0.5*(t[1:] + t[0:-1])
 
 # map foward from 1.0 to 2.0
-dummy_file = datasets['ones']
 domain_r_min = 1.0
 domain_r_max = 2.0
+
+# Build an all-ones scalar field for the 1/B area weighting. The value is
+# constant, so a coarse (r, theta, phi) grid suffices — only the scales (which
+# must bracket the traced volume) and the 3D-with-scales format matter. mapfl
+# reads the scalar from disk, so we write it to a temporary file.
+ones_r = np.array([domain_r_min, domain_r_max])
+ones_t = np.array([0.0, np.pi])
+ones_p = np.array([0.0, 2*np.pi])
+ones_field = np.ones((ones_p.size, ones_t.size, ones_r.size))  # C-order: (nphi, ntheta, nr)
+dummy_file = os.path.join(tempfile.gettempdir(), 'mapflpy_dummy_ones_3d.h5')
+wrhdf_3d(dummy_file, ones_r, ones_t, ones_p, ones_field)
 mappping_area_fwd = map_pt_forward(*magnetic_field_files, p_i, t_i, radius=domain_r_min, nproc=nproc,
                                    domain_r_min_=domain_r_min, domain_r_max_=domain_r_max,
                                    integrate_along_fl_=True, weight_integral_by_area_=True,
@@ -156,7 +149,7 @@ cell_omega = np.einsum('i,j->ij', dt*np.sin(t_i), dp)
 # get br at this surface by interpolating to the 2D grid of r, t, p positions
 p2d, t2d = np.meshgrid(p_i, t_i)
 ones2d = np.ones_like(p2d)
-br_lower = psi_io.interpolate_positions_from_hdf(datasets['br'], ones2d*domain_r_min, t2d, p2d)
+br_lower = interpolate_positions_from_hdf(files.cor_br, ones2d*domain_r_min, t2d, p2d)
 
 # Compute the volume
 vol_fwd = domain_r_min**2*cell_omega*np.abs(br_lower)*mappping_area_fwd.integral
@@ -179,7 +172,7 @@ mapping_area_bwd = map_pt_backward(*magnetic_field_files, p_i, t_i, radius=domai
                                    integrate_along_fl_=True, weight_integral_by_area_=True,
                                    scalar_input_file_=dummy_file)
 
-br_upper = psi_io.interpolate_positions_from_hdf(datasets['br'], ones2d*domain_r_max, t2d, p2d)
+br_upper = interpolate_positions_from_hdf(files.cor_br, ones2d*domain_r_max, t2d, p2d)
 vol_bwd = domain_r_max**2*cell_omega*np.abs(br_upper)*mapping_area_bwd.integral
 
 # the total volume should be the average of the two mapping's total volumes

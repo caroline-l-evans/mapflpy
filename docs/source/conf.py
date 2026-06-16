@@ -39,7 +39,7 @@ release = mapflpy.__version__
 extensions = []
 
 # --- HTML Theme
-_logo = "https://predsci.com/doc/assets/static/psi_logo.png"
+_logo = "https://predsci.com/doc/psi_logo.png"
 html_favicon = _logo
 html_logo = _logo
 html_theme = "sphinx_book_theme"
