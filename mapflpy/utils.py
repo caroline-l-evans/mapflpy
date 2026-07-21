@@ -503,9 +503,189 @@ def combine_and_pad_fieldlines(arrs: list | tuple,
             end_pos[:, i] = a[:, -1]
         return Traces(geometry, start_pos, end_pos, traced_to_boundary, integral)
 
+def get_half_mesh(x):
+    """
+    Return the FULL half mesh based on an array of 1D mesh locations.
 
+    Assuming that the input x is the bounding exterior (main) mesh, this returns
+    the exterior (half) mesh locations.
 
+    *** Unlike the "get_1d_mesh_properties" method in map_mesh, this routine
+        gives you the half mesh locations at the exterior, like in MAS (no clipping).
 
+    Parameters
+    ----------
+    x : 1D numpy array of n grid locations.
+
+    Returns
+    -------
+    xh: 1D numpy array of grid locations on the exterior half mesh (n+1).
+    """
+    # Compute the interior (half) mesh positions
+    xh = 0.5*(x[1:] + x[0:-1])
+
+    # Compute the spacing centered around the interior half mesh
+    dxh = x[1:] - x[0:-1]
+
+    # Add the boundary points to make the half mesh with exterior points
+    xh = np.concatenate([[xh[0] - dxh[0]], xh, [xh[-1] + dxh[-1]]])
+
+    return xh
+
+def modulo_twopi(x_arr):
+    """
+    This returns the smallest value of x_arr, modulo 2*pi.
+
+    Parameters
+    ----------
+    x_arr : float or ndarray
+         Specified input value
+
+    Returns
+    -------
+    m_twopi : float or ndarray
+        The smallest value of each x_arr, modulo 2*pi
+
+    Notes
+    -----
+    - This uses :func:`~numpy.isclose`
+    """
+
+    # generate plus/minus 2pi
+    xm = np.abs(x_arr - (2 * np.pi))
+    xp = np.abs(x_arr + (2 * np.pi))
+    # check which value is the smallest
+    x_min = np.minimum(np.minimum(xm, np.abs(x_arr)), xp)
+
+    # determine the appropriate value, modulo two pi, elementwise
+    m_twopi = np.where(np.isclose(xm, x_min),
+                       x_arr - 2 * np.pi,
+                       np.where(np.isclose(xp, x_min), x_arr + 2 * np.pi,
+                                x_arr))
+    return m_twopi
+
+def calc_jacobian(mapping, tss, pss):
+    """
+    This calculates the Jacobian for a given field line mapping
+    and its launch points.
+
+    Parameters
+    ----------
+    mapping : :class:`~mapflpy.globals.Mapping`
+        A namedtuple containing mapping results (:class:`mapflpy.globals.Mapping`).
+    tss : ndarray
+        Theta points used to generate the mapping
+    pss : ndarray
+        Phi points used to generate the mapping
+
+    Returns
+    -------
+    dtdt, dtdp, dpdt, dpdp : ndarray
+        Each respective component of the jacobian as an ndarray
+
+    """
+
+    tfl = mapping.t
+    pfl = mapping.p
+
+    # get the spacing from launch points
+    dp = pss[1:] - pss[:-1]
+    dt = tss[1:] - tss[:-1]
+
+    # and we need these as mesh grids since we're vectorized
+    dt_mg, dp_mg = np.meshgrid(dt, dp, indexing='ij')
+
+    # get the components of the jacobian
+    # thetas
+    dtdt_m = (tfl[1:, :-1] - tfl[:-1, :-1]) / dt_mg
+    dtdt_p = (tfl[1:, 1:] - tfl[:-1, 1:]) / dt_mg
+    dtdp_m = (tfl[:-1, 1:] - tfl[:-1, :-1]) / dp_mg
+    dtdp_p = (tfl[1:, 1:] - tfl[1:, :-1]) / dp_mg
+    # phis
+    dpdt_m = modulo_twopi(pfl[1:, :-1] - pfl[:-1, :-1]) / dt_mg
+    dpdt_p = modulo_twopi(pfl[1:, 1:] - pfl[:-1, 1:]) / dt_mg
+    dpdp_m = modulo_twopi(pfl[:-1, 1:] - pfl[:-1, :-1]) / dp_mg
+    dpdp_p = modulo_twopi(pfl[1:, 1:] - pfl[1:, :-1]) / dp_mg
+
+    # now combine
+    dtdt = 0.5 * (dtdt_m + dtdt_p)
+    dtdp = 0.5 * (dtdp_m + dtdp_p)
+    dpdt = 0.5 * (dpdt_m + dpdt_p)
+    dpdp = 0.5 * (dpdp_m + dpdp_p)
+
+    return dtdt, dtdp, dpdt, dpdp
+
+def calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped = False):
+    """
+    Using components of a Jacobian, this calculates the squashing factor, q.
+
+    Parameters
+    ----------
+    dtdt : ndarray
+         dtdt component of a Jacobian from :func:`~calc_jacobian`
+    dtdp : ndarray
+         dtdp component of a Jacobian from :func:`~calc_jacobian`
+    dpdt : ndarray
+         dpdt component of a Jacobian from :func:`~calc_jacobian`
+    dpdp : ndarray
+         dpdp component of a Jacobian from :func:`~calc_jacobian`
+    mapping : :class:`~mapflpy.globals.Mapping`
+        A namedtuple containing mapping results (:class:`mapflpy.globals.Mapping`).
+    tss : ndarray
+        Theta points used to generate the mapping
+    pss : ndarray
+        Phi points used to generate the mapping
+    ef_arr : ndarray
+        An array of the expansion factor
+    clipped: logical
+        Specifies whether the input theta field is clipped
+    Returns
+    -------
+    t_i : ndarray
+        theta values on which q is calculated
+    p_i : ndarray
+        phi values on which q is calculated
+    q   : ndarray
+        squashing factor
+    """
+    # get the averaged expansion factor:
+    efav = 0.25 * (ef_arr[:-1, :-1] + ef_arr[1:, :-1] + ef_arr[:-1, 1:] + ef_arr[1:, 1:])
+
+    # get the traced field lines in theta
+    tfl = mapping.t
+    # average the traced field lines in theta
+    tmav = 0.25 * (tfl[:-1, :-1] + tfl[1:, :-1] + tfl[:-1, 1:] + tfl[1:, 1:])
+
+    # create the mesh on which we compute Q
+    t_i = 0.5 * (tss[1:] + tss[0:-1])
+    p_i = 0.5 * (pss[1:] + pss[0:-1])
+
+    # and we'll need meshgrid for vectorization
+    t_img, p_img = np.meshgrid(t_i, p_i, indexing='ij')
+
+    # calculate the coefficients that'll make q
+    aa = np.sin(tmav) * dpdp / np.sin(t_img)
+    bb = np.sin(tmav) * dpdt
+    cc = dtdp / np.sin(t_img)
+    dd = dtdt
+
+    # we did it!
+    q_raw = (aa ** 2 + bb ** 2 + cc ** 2 + dd ** 2) / np.transpose(efav)
+
+    # final logic checks: expansion factor can't be 0
+    q_checked = np.where(np.transpose(efav) == 0.0, 0, q_raw)
+    q = np.copy(q_checked)
+
+    if clipped == True:
+        # make sure the poles are now actually at the poles and not just close
+        q[0, :] = 0.5 * (q[-2, :] + q[1, :])
+        q[-1, :] = 0.5 * (q[-2, :] + q[1, :])
+
+        # and finally change the theta ends to reflect the above change
+        t_i[-1] = np.pi
+        t_i[0] = 0.0
+
+    return t_i, p_i, q
 
 def s2c(r, t, p):
     """
