@@ -4,8 +4,8 @@ Plotting the Squashing Factor
 
 This example demonstrates how to use and plot the :func:`~mapflpy.scripts.compute_q_on_surface`
 to visualize key topology and morphology metrics of the magnetic field.
-The :func:`~mapflpy.scripts.compute_q_on_surface` combines :func:`~mapflpy.scripts.expansion_factor`,
- :func:`~mapflpy.utils.calc_jacobian`, and :func:`~mapflpy.utils.calc_q` with
+The :func:`~mapflpy.scripts.compute_q_on_surface` combines :func:`~mapflpy.scripts.expansion_factor` with
+ :func:`~mapflpy.utils.calc_jacobian` and :func:`~mapflpy.utils.calc_q` using
  :func:`~mapflpy.scripts.map_pt_forward` or :func:`~mapflpy.scripts.map_pt_backward`
  to calculate the squashing factor.
 
@@ -52,8 +52,9 @@ magnetic_field_files = files.cor_br, files.cor_bt, files.cor_bp
 squashing_factor_default = compute_q_on_surface(magnetic_field_files)
 # plot Q
 ax = plt.figure().add_subplot()
-q_map = ax.pcolormesh(np.rad2deg(squashing_factor_default.p), 90 - np.rad2deg(squashing_factor_default.t), np.log10(squashing_factor_default.q),
-              cmap='Grays')
+q_map = ax.pcolormesh(np.rad2deg(squashing_factor_default.p), 90 - np.rad2deg(squashing_factor_default.t),
+                      np.log10(squashing_factor_default.q),
+                      cmap='Grays')
 ax.set_aspect("equal", adjustable="box")
 ax.set_title('Log$_{10}$ Q')
 plt.colorbar(q_map)
@@ -69,11 +70,12 @@ plt.show()
 
 
 squashing_factor_3_bwd = compute_q_on_surface(magnetic_field_files, direction='bwd', nproc=4, trace_radius=3,
-                                  t_arr=np.linspace(0, np.pi, 40), p_arr=np.linspace(0, 2*np.pi, 80))
+                                              p_arr=np.linspace(0, 2 * np.pi, 80), t_arr=np.linspace(0, np.pi, 40))
 # and visualizing:
 ax = plt.figure().add_subplot()
-q_map = ax.pcolormesh(np.rad2deg(squashing_factor_3_bwd.p), 90 - np.rad2deg(squashing_factor_3_bwd.t), np.log10(squashing_factor_3_bwd.q),
-              cmap='Grays')
+q_map = ax.pcolormesh(np.rad2deg(squashing_factor_3_bwd.p), 90 - np.rad2deg(squashing_factor_3_bwd.t),
+                      np.log10(squashing_factor_3_bwd.q),
+                      cmap='Grays')
 ax.set_aspect("equal", adjustable="box")
 ax.set_title('Log$_{10}$ Q')
 plt.colorbar(q_map)
@@ -84,8 +86,8 @@ plt.show()
 # in just say, the expansion factor, we can plot that.
 
 # We first need to calculate a mapping on a set of given points
+p_to_trace = np.linspace(0, 2 * np.pi, 100)
 t_to_trace = np.linspace(0, np.pi, 50)
-p_to_trace = np.linspace(0, 2*np.pi, 100)
 
 # let's  map and get the expansion factor
 mapping = map_pt_forward(*magnetic_field_files, p_to_trace, t_to_trace)
@@ -93,8 +95,8 @@ ef, p_ef, t_ef = expansion_factor(magnetic_field_files, mapping, 3, p_to_trace, 
 
 # and now we can visualize
 ax = plt.figure().add_subplot()
-ef_map = ax.pcolormesh(np.rad2deg(p_to_trace), 90-np.rad2deg(t_to_trace), np.log10(ef).T,
-              cmap='plasma')
+ef_map = ax.pcolormesh(np.rad2deg(p_to_trace), 90 - np.rad2deg(t_to_trace), np.log10(ef).T,
+                       cmap='plasma')
 ax.set_aspect("equal", adjustable="box")
 ax.set_title('expansion factor')
 plt.colorbar(ef_map)

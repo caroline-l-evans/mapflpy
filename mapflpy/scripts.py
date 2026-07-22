@@ -428,15 +428,20 @@ def expansion_factor(b_files, mapping, trace_radius, pss, tss):
         A namedtuple containing mapping results (:class:`mapflpy.globals.Mapping`).
     trace_radius : float
         The radius from which to map.
-    tss : ndarray
-        Theta points used to generate the mapping
     pss : ndarray
-        Phi points used to generate the mapping
+        phi points used to generate the mapping
+    tss : ndarray
+        theta points used to generate the mapping
 
     Returns
     -------
     efl : ndarray
         An array of the expansion factor
+    pss : ndarray
+        phi points used to generate the expansion factor
+    tss : ndarray
+        theta points used to generate the expansion factor
+
 
     Notes
     -----
@@ -470,7 +475,7 @@ def expansion_factor(b_files, mapping, trace_radius, pss, tss):
     return efl, pss, tss
 
 def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_arr=np.asarray([]),
-                         t_arr=np.asarray([]), p_range=None, t_range=None, ntpts=150, nppts=300):
+                         t_arr=np.asarray([]), p_range=None, t_range=None, nppts=300, ntpts=150):
     """
     This wrapper calculates the squashing factor for a specified slice on a specified grid.
 
@@ -492,19 +497,15 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_ar
         User-specified start and end point in theta. defaults to [0, 2*np.pi].
     t_range : list or ndarray of two float, optional
         User-specified start and end point in theta. defaults to [0, np.pi].
-
-    ntpts   : int, optional
-        Number of points desired in theta when t_range is in use
     nppts   : int, optional
         Number of points desired in phi when p_range is in use
+    ntpts   : int, optional
+        Number of points desired in theta when t_range is in use
+
     Returns
     -------
-    p   : ndarray
-        phi values on which q is calculated
-    t   : ndarray
-        theta values on which q is calculated
-    q   : ndarray
-        squashing factor
+    squashing_factor : :class:`~mapflpy.globals.Squashing_Factor`
+        A namedtuple containing the q, p, t results (:class:`mapflpy.globals.Squashing_Factor`).
 
     """
     # default ranges for t, p
