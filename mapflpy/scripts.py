@@ -29,7 +29,7 @@ from typing import Optional, Iterable, Tuple, Callable
 import numpy as np
 from numpy.typing import NDArray, ArrayLike
 
-from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType
+from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType, Squashing_Factor
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points, modulo_twopi, get_half_mesh, calc_jacobian, calc_q
 from psi_io import interpolate_positions_from_hdf
@@ -415,7 +415,7 @@ def map_pt_backward(br: PathType,
 
     return mapping
 
-def expansion_factor(b_files, mapping, trace_radius, tss, pss):
+def expansion_factor(b_files, mapping, trace_radius, pss, tss):
     """
     Calculate the expansion factor of a given set of field line launch points and
     their mapped end points.
@@ -467,10 +467,10 @@ def expansion_factor(b_files, mapping, trace_radius, tss, pss):
     # if we make it to the boundary, use our calculated expansion factor. otherwise, = 0:
     efl = np.where(np.transpose(mapping.traced_to_boundary), efl_raw, 0)
 
-    return efl
+    return efl, pss, tss
 
-def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_arr=np.asarray([]),
-                         p_arr=np.asarray([]), t_range=None, p_range=None, ntpts=150, nppts=300):
+def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_arr=np.asarray([]),
+                         t_arr=np.asarray([]), p_range=None, t_range=None, ntpts=150, nppts=300):
     """
     This wrapper calculates the squashing factor for a specified slice on a specified grid.
 
@@ -484,24 +484,25 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
         The number of processes to spawn. This should be equal to or less than the number of threads that can be used on the machine.
     trace_radius : float, optional
         The radius from which to map. Defaults to 1.
-    t_arr : ndarray,  optional
-        User-specified array for theta points used to generate the mapping. Must also specify p_arr. Either specify thse or t_range and p_range.
     p_arr : ndarray,  optional
         User-specified array for phi points used to generate the mapping. Must also specify t_arr. Either specify thse or t_range and p_range.
-    t_range : list or ndarray of two float, optional
-        User-specified start and end point in theta. defaults to [0, np.pi].
+    t_arr : ndarray,  optional
+        User-specified array for theta points used to generate the mapping. Must also specify p_arr. Either specify thse or t_range and p_range.
     p_range : list or ndarray of two float, optional
         User-specified start and end point in theta. defaults to [0, 2*np.pi].
+    t_range : list or ndarray of two float, optional
+        User-specified start and end point in theta. defaults to [0, np.pi].
+
     ntpts   : int, optional
         Number of points desired in theta when t_range is in use
     nppts   : int, optional
         Number of points desired in phi when p_range is in use
     Returns
     -------
-    t   : ndarray
-        theta values on which q is calculated
     p   : ndarray
         phi values on which q is calculated
+    t   : ndarray
+        theta values on which q is calculated
     q   : ndarray
         squashing factor
 
@@ -551,14 +552,14 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
         mapping = map_pt_forward(*b_files, pss, tss, radius=trace_radius, nproc=nproc)
 
         # make the expansion factor.
-        ef_arr = expansion_factor(b_files, mapping, trace_radius, tss, pss)
+        ef_arr, p_ef, t_ef = expansion_factor(b_files, mapping, trace_radius, pss, tss)
 
         # make the components of the jacobian
-        dtdt, dtdp, dpdt, dpdp = calc_jacobian(mapping, tss, pss)
+        dtdt, dtdp, dpdt, dpdp = calc_jacobian(mapping, pss, tss)
         # put the expansion factor, jacobian, and field lines together to get q
-        t, p, q = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped)
+        q, p, t = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, pss, tss, ef_arr, clipped)
 
-        return t, p, q
+        return Squashing_Factor(q, p, t)
 
     # field-line tracing by direction. now backward
     elif direction == 'bwd':
@@ -567,14 +568,15 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
         mapping = map_pt_backward(*b_files, pss, tss, radius=trace_radius, nproc=nproc)
 
         # make the expansion factor.
-        ef_arr = expansion_factor(b_files, mapping, trace_radius, tss, pss)
+        ef_arr, p_ef, t_ef = expansion_factor(b_files, mapping, trace_radius, pss, tss)
 
         # make the components of the jacobian
-        dtdt, dtdp, dpdt, dpdp = calc_jacobian(mapping, tss, pss)
+        dtdt, dtdp, dpdt, dpdp = calc_jacobian(mapping, pss, tss)
 
         # put the expansion factor, jacobian, and field lines together to get q
-        t, p, q = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped)
-        return t, p, q
+        q, p, t = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, pss, tss, ef_arr, clipped)
+
+        return Squashing_Factor(q, p, t)
 
     # field-line tracing by direction. now take the average of the forward/backward
     elif direction == 'fwdbwd':
@@ -584,23 +586,23 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
         mapping_bwd = map_pt_backward(*b_files, pss, tss, radius=trace_radius, nproc=nproc)
 
         # make the expansion factor.
-        ef_arr_fwd = expansion_factor(b_files, mapping_fwd, trace_radius, tss, pss)
-        ef_arr_bwd = expansion_factor(b_files, mapping_bwd, trace_radius, tss, pss)
+        ef_arr_fwd, p_ef_f, t_ef_f = expansion_factor(b_files, mapping_fwd, trace_radius, pss, tss)
+        ef_arr_bwd, p_ef_b, t_ef_b = expansion_factor(b_files, mapping_bwd, trace_radius, pss, tss)
 
         # make the components of the jacobian
-        dtdt_fwd, dtdp_fwd, dpdt_fwd, dpdp_fwd = calc_jacobian(mapping_fwd, tss, pss)
-        dtdt_bwd, dtdp_bwd, dpdt_bwd, dpdp_bwd = calc_jacobian(mapping_bwd, tss, pss)
+        dtdt_fwd, dtdp_fwd, dpdt_fwd, dpdp_fwd = calc_jacobian(mapping_fwd, pss, tss)
+        dtdt_bwd, dtdp_bwd, dpdt_bwd, dpdp_bwd = calc_jacobian(mapping_bwd, pss, tss)
 
         # put the expansion factor, jacobian, and field lines together to get q
-        t_fwd, p_fwd, q_fwd = calc_q(dtdt_fwd, dtdp_fwd, dpdt_fwd, dpdp_fwd, mapping_fwd, tss, pss, ef_arr_fwd, clipped)
-        t_bwd, p_bwd, q_bwd = calc_q(dtdt_bwd, dtdp_bwd, dpdt_bwd, dpdp_bwd, mapping_bwd, tss, pss, ef_arr_bwd, clipped)
+        q_fwd, p_fwd, t_fwd = calc_q(dtdt_fwd, dtdp_fwd, dpdt_fwd, dpdp_fwd, mapping_fwd, pss, tss, ef_arr_fwd, clipped)
+        q_bwd, p_bwd, t_bwd = calc_q(dtdt_bwd, dtdp_bwd, dpdt_bwd, dpdp_bwd, mapping_bwd, pss, tss, ef_arr_bwd, clipped)
 
         # reutrn the averaged quantity
-        t = 0.5 * (t_fwd + t_bwd)
         p = 0.5 * (p_fwd + p_bwd)
+        t = 0.5 * (t_fwd + t_bwd)
         q = 0.5 * (q_fwd + q_bwd)
 
-        return t, p, q
+        return Squashing_Factor(q, p, t)
 
     else:
         raise Exception("specify a valid direction: fwd, bwd, fwdbwd")

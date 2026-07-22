@@ -564,7 +564,7 @@ def modulo_twopi(x_arr):
                                 x_arr))
     return m_twopi
 
-def calc_jacobian(mapping, tss, pss):
+def calc_jacobian(mapping, pss, tss):
     """
     This calculates the Jacobian for a given field line mapping
     and its launch points.
@@ -615,7 +615,7 @@ def calc_jacobian(mapping, tss, pss):
 
     return dtdt, dtdp, dpdt, dpdp
 
-def calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped = False):
+def calc_q(dtdt, dtdp, dpdt, dpdp, mapping, pss, tss, ef_arr, clipped = False):
     """
     Using components of a Jacobian, this calculates the squashing factor, q.
 
@@ -685,7 +685,7 @@ def calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped = False):
         t_i[-1] = np.pi
         t_i[0] = 0.0
 
-    return t_i, p_i, q
+    return q, p_i, t_i
 
 def s2c(r, t, p):
     """

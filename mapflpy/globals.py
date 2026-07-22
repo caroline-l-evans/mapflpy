@@ -80,6 +80,26 @@ Mapping.__doc__ = (
 )
 
 # ------------------------------------------------------------------------------
+# Named tuple for storing squashing factor produced by the
+# scripts in `mapflpy.scripts`
+# ------------------------------------------------------------------------------
+Squashing_Factor = namedtuple('Squashing_Factor', ['q', 'p', 't'])
+Mapping.__doc__ = (
+    """Named tuple for storing q and the field on which it was calculated.
+
+    Attributes
+    ----------
+    q : ndarray
+        Array containing the squashing factor
+    p : ndarray
+        Array containing the phi (longitude) positions for q in radians.
+    t : ndarray
+        Array containing the theta (co-latitude) positions for q in radians.
+
+    """
+)
+
+# ------------------------------------------------------------------------------
 # Type aliases for improved code readability.
 # ------------------------------------------------------------------------------
 NumberType = TypeVar(
