@@ -84,7 +84,7 @@ Mapping.__doc__ = (
 # scripts in `mapflpy.scripts`
 # ------------------------------------------------------------------------------
 SquashingFactor = namedtuple('Squashing_Factor', ['q', 'p', 't'])
-Mapping.__doc__ = (
+SquashingFactor.__doc__ = (
     """Named tuple for storing q and the field on which it was calculated.
 
     Attributes
