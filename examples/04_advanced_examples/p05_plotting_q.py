@@ -49,7 +49,7 @@ magnetic_field_files = files.cor_br, files.cor_bt, files.cor_bp
 # specifying only the magnetic field files and visualize the output.
 
 # compute Q
-t, p, q = qs.compute_q_on_surface(magnetic_field_files)
+t, p, q = compute_q_on_surface(magnetic_field_files)
 # plot Q
 ax = plt.figure().add_subplot()
 q_map = ax.pcolormesh(np.rad2deg(p), 90 - np.rad2deg(t), np.log10(q),
@@ -68,7 +68,7 @@ plt.show()
 # We are intentionally picking a low resolution so this runs fast, you should use more points!
 
 
-t, p, q = qs.compute_q_on_surface(magnetic_field_files, direction='bwd', nproc=4, trace_radius=3,
+t, p, q = compute_q_on_surface(magnetic_field_files, direction='bwd', nproc=4, trace_radius=3,
                                   t_arr=np.linspace(0, np.pi, 40), p_arr=np.linspace(0, 2*np.pi, 80))
 # and visualizing:
 ax = plt.figure().add_subplot()
@@ -89,7 +89,7 @@ p_to_trace = np.linspace(0, 2*np.pi, 100)
 
 # NOTE the difference ordering of pt then tp below!
 mapping = map_pt_forward(*magnetic_field_files, p_to_trace, t_to_trace)
-ef = qs.expansion_factor(magnetic_field_files, mapping, 3, t_to_trace, p_to_trace)
+ef = expansion_factor(magnetic_field_files, mapping, 3, t_to_trace, p_to_trace)
 
 # and now we can visualize
 ax = plt.figure().add_subplot()
