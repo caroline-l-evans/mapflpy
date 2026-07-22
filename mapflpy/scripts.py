@@ -29,7 +29,7 @@ from typing import Optional, Iterable, Tuple, Callable
 import numpy as np
 from numpy.typing import NDArray, ArrayLike
 
-from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType, Squashing_Factor
+from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType, SquashingFactor
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points, modulo_twopi, get_half_mesh, calc_jacobian, calc_q
 from psi_io import interpolate_positions_from_hdf
@@ -504,8 +504,8 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_ar
 
     Returns
     -------
-    squashing_factor : :class:`~mapflpy.globals.Squashing_Factor`
-        A namedtuple containing the q, p, t results (:class:`mapflpy.globals.Squashing_Factor`).
+    squashing_factor : :class:`~mapflpy.globals.SquashingFactor`
+        A namedtuple containing the q, p, t results (:class:`mapflpy.globals.SquashingFactor`).
 
     """
     # default ranges for t, p
@@ -560,7 +560,7 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_ar
         # put the expansion factor, jacobian, and field lines together to get q
         q, p, t = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, pss, tss, ef_arr, clipped)
 
-        return Squashing_Factor(q, p, t)
+        return SquashingFactor(q, p, t)
 
     # field-line tracing by direction. now backward
     elif direction == 'bwd':
@@ -577,7 +577,7 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_ar
         # put the expansion factor, jacobian, and field lines together to get q
         q, p, t = calc_q(dtdt, dtdp, dpdt, dpdp, mapping, pss, tss, ef_arr, clipped)
 
-        return Squashing_Factor(q, p, t)
+        return SquashingFactor(q, p, t)
 
     # field-line tracing by direction. now take the average of the forward/backward
     elif direction == 'fwdbwd':
@@ -603,7 +603,7 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, p_ar
         t = 0.5 * (t_fwd + t_bwd)
         q = 0.5 * (q_fwd + q_bwd)
 
-        return Squashing_Factor(q, p, t)
+        return SquashingFactor(q, p, t)
 
     else:
         raise Exception("specify a valid direction: fwd, bwd, fwdbwd")
