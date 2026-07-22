@@ -32,6 +32,7 @@ from numpy.typing import NDArray, ArrayLike
 from mapflpy.globals import DEFAULT_BUFFER_SIZE, Traces, Mapping, PathType, DirectionType, ContextType
 from mapflpy.tracer import TracerMP
 from mapflpy.utils import shift_phi_traces, shift_phi_lps, fetch_default_launch_points, modulo_twopi, get_half_mesh, calc_jacobian, calc_q
+from psi_io import interpolate_positions_from_hdf
 
 __all__ = [
     "run_forward_tracing",
@@ -440,7 +441,6 @@ def expansion_factor(b_files, mapping, trace_radius, tss, pss):
     Notes
     -----
     - This function manually handles periodic boundaries in phi
-    - This assumes psi_io is imported
     """
 
     # for the sake of interp: make sure phi's periodicity is obeyed
@@ -456,9 +456,9 @@ def expansion_factor(b_files, mapping, trace_radius, tss, pss):
     # xfl1: radial traced point location
     xfl1 = np.transpose(mapping.r)
     # bs0: radial magnetic field launch point
-    bs0 = psi_io.interpolate_positions_from_hdf(b_files[0], xfl0, tss2d, pss2d)
+    bs0 = interpolate_positions_from_hdf(b_files[0], xfl0, tss2d, pss2d)
     # bs1: radial magnetic field traced point
-    bs1 = psi_io.interpolate_positions_from_hdf(b_files[0], np.transpose(mapping.r), np.transpose(mapping.t),
+    bs1 = interpolate_positions_from_hdf(b_files[0], np.transpose(mapping.r), np.transpose(mapping.t),
                                                 np.transpose(mapping.p))
 
     # logic checks:

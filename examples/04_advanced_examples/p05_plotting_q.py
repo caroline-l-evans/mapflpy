@@ -25,7 +25,6 @@ import os
 from psi_data import fetch_mas_data
 import numpy as np
 import matplotlib.pylab as plt
-import psi_io
 from mapflpy.scripts import map_pt_forward, expansion_factor, compute_q_on_surface
 
 # sphinx_gallery_start_ignore
