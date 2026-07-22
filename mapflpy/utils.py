@@ -678,8 +678,8 @@ def calc_q(dtdt, dtdp, dpdt, dpdp, mapping, tss, pss, ef_arr, clipped = False):
 
     if clipped == True:
         # make sure the poles are now actually at the poles and not just close
-        q[0, :] = 0.5 * (q[-2, :] + q[1, :])
-        q[-1, :] = 0.5 * (q[-2, :] + q[1, :])
+        q[0, :] = np.mean(q[0, :])
+        q[-1, :] = np.mean(q[-1, :])
 
         # and finally change the theta ends to reflect the above change
         t_i[-1] = np.pi

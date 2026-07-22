@@ -457,7 +457,6 @@ def expansion_factor(b_files, mapping, trace_radius, tss, pss):
     xfl1 = np.transpose(mapping.r)
     # bs0: radial magnetic field launch point
     bs0 = psi_io.interpolate_positions_from_hdf(b_files[0], xfl0, tss2d, pss2d)
-    print(xfl0.shape, tss2d.shape, pss2d.shape, bs0.shape)
     # bs1: radial magnetic field traced point
     bs1 = psi_io.interpolate_positions_from_hdf(b_files[0], np.transpose(mapping.r), np.transpose(mapping.t),
                                                 np.transpose(mapping.p))
@@ -535,10 +534,16 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
             clipped = False
     # using the user-defined mesh for t, p
     else:
-        print('t_arr.shape[0] != 0')
-        tss = get_half_mesh(t_arr)
+        th = get_half_mesh(t_arr)
+        tss = np.copy(th)
         pss = get_half_mesh(p_arr)
-        clipped = False
+        if (tss[0] < 0) or (tss[-1] > np.pi):
+            # clip the boundaries
+            tss[0] = 0.0
+            tss[-1] = np.pi
+            clipped = True
+        else:
+            clipped = False
 
     # field-line tracing by direction. starting with forward
     if direction == 'fwd':
@@ -598,7 +603,7 @@ def compute_q_on_surface(b_files, direction='fwd', nproc=4, trace_radius=1, t_ar
         return t, p, q
 
     else:
-        print('specify a valid direction: fwd, bwd, fwdbwd')
+        raise Exception("specify a valid direction: fwd, bwd, fwdbwd")
 
 def inter_domain_tracing(br_cor: PathType,
                          bt_cor: PathType,

@@ -35,7 +35,7 @@ from mapflpy.scripts import map_pt_forward, map_pt_backward
 # %%
 # Load in the magnetic field and scalar field files used for this example.
 # They are from a CORHEL-MAS thermodynamic MHD calculation for CR2282.
-# Becuase they are not part of the standard datasets in mapflpy or psi-io
+# Because they are not part of the standard datasets in mapflpy or psi-io
 # (yet), we fetch them manually and place them in the default cache location.
 
 
